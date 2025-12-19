@@ -199,3 +199,13 @@ class BudgetAccountant:
 
     def rows(self) -> list[dict[str, float | str | int]]:
         return [record.as_row() for record in self.records]
+
+
+def compare_spend(left: BudgetSummary, right: BudgetSummary) -> bool:
+    """Both runs must have spent the same candidate and sample budget."""
+    return left.same_spend_as(right)
+
+
+def spend_gap(left: BudgetSummary, right: BudgetSummary) -> tuple[int, int]:
+    """Difference in (candidates, samples) between two runs."""
+    return (right.n_candidates - left.n_candidates, right.total_samples - left.total_samples)
