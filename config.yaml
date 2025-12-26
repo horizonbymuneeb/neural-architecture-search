@@ -1,0 +1,41 @@
+# Every value here is read by the code. `budget` is enforced at runtime by
+# BudgetAccountant; `evolution` determines how many candidates a run plans, and
+# the random baseline is given exactly that many (so the comparison is fair).
+
+seed: 0
+output_dir: artifacts
+
+space:
+  min_blocks: 1
+  max_blocks: 3
+  width: 8
+  width_choices: [8]
+  n_classes: 3
+  in_channels: 3
+
+task:
+  n_samples: 600
+  size: 12
+  n_classes: 3
+  noise: 0.2
+  seed: 0
+  val_fraction: 0.25
+
+training:
+  epochs: 4                 # must equal budget.epochs_per_candidate
+  batch_size: 64
+  learning_rate: 0.01
+  weight_decay: 0.0
+
+evolution:
+  population_size: 6
+  generations: 2            # planned evaluations = 6 + 2 * (6 - 1) = 16
+  tournament_size: 3
+  mutation_rate: 0.3
+  crossover_rate: 0.6
+  elite: 1
+
+budget:
+  max_candidates: 16
+  max_samples: 200000
+  epochs_per_candidate: 4
