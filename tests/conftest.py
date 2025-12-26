@@ -9,3 +9,5 @@ import sys
 from pathlib import Path
 
 import torch
+
+torch.set_num_threads(1)
