@@ -44,3 +44,33 @@ def build_parser() -> argparse.ArgumentParser:
     config_parser = subparsers.add_parser("config", help="print the effective configuration")
     config_parser.add_argument("--defaults", action="store_true", help="print the built-in defaults as YAML")
     return parser
+
+
+def make_components(config: AppConfig) -> tuple:
+    """Build the task, loaders and supernet the searches share."""
+    task = make_task(config.task)
+    train_loader = make_loader(
+        task.train_images, task.train_labels, config.training.batch_size, shuffle=True, seed=config.seed
+    )
+    val_loader = make_loader(
+        task.val_images, task.val_labels, config.training.batch_size, shuffle=False, seed=config.seed
+    )
+    supernet = Supernet(config.space, in_channels=config.space.in_channels, n_classes=config.space.n_classes)
+    return task, train_loader, val_loader, supernet
+
+
+def run_strategy(
+    strategy: str,
+    config: AppConfig,
+    components: tuple | None = None,
+) -> SearchOutcome:
+    """Run one strategy under the configured budget and return its outcome."""
+    if strategy not in ("evolution", "random"):
+        raise ValueError(f"unknown strategy {strategy!r}")
+    task, train_loader, val_loader, supernet = components or make_components(config)
+    limits = config.budget
+    accountant = BudgetAccountant(limits=limits, strategy=strategy)
+    evaluator = make_evaluator(supernet, train_loader, val_loader, config.training, accountant)
+    if strategy == "evolution":
+        return evolve(evaluator, config.evolution, accountant, seed=config.seed, space=config.space)
+    return random_search(evaluator, config.random_config(), accountant, seed=config.seed, space=config.space)
