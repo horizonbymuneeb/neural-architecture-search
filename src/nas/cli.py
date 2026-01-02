@@ -119,3 +119,34 @@ def cmd_space(args: argparse.Namespace, config: AppConfig) -> int:
     print(f"supernet parameters: {Supernet(space).n_parameters()}")
     print(f"standalone parameters for the example: {count_parameters(build_network(sample))}")
     return 0
+
+
+def cmd_data(args: argparse.Namespace, config: AppConfig) -> int:
+    """Report the task shape, class balance and a baseline accuracy."""
+    task = make_task(config.task)
+    print(describe_task(task))
+    print(f"train class balance: {class_balance(task.train_labels)}")
+    print(f"val class balance:   {class_balance(task.val_labels)}")
+    rng = np.random.default_rng(config.seed)
+    arch = random_arch(rng, config.space)
+    train_loader = make_loader(task.train_images, task.train_labels, config.training.batch_size, True, config.seed)
+    val_loader = make_loader(task.val_images, task.val_labels, config.training.batch_size, False, config.seed)
+    result = train_standalone(
+        arch,
+        train_loader,
+        val_loader,
+        config.training,
+        in_channels=config.space.in_channels,
+        n_classes=config.space.n_classes,
+    )
+    print(f"one-architecture baseline {arch.key}: accuracy {result.accuracy:.4f} in {result.seconds:.2f}s")
+    return 0
+
+
+def cmd_config(args: argparse.Namespace, config: AppConfig) -> int:
+    """Print the effective configuration, or the built-in defaults."""
+    if args.defaults:
+        print(default_config_yaml())
+        return 0
+    print(json.dumps(config_as_dict(config), indent=2))
+    return 0
