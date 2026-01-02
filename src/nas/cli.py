@@ -74,3 +74,48 @@ def run_strategy(
     if strategy == "evolution":
         return evolve(evaluator, config.evolution, accountant, seed=config.seed, space=config.space)
     return random_search(evaluator, config.random_config(), accountant, seed=config.seed, space=config.space)
+
+
+def cmd_search(args: argparse.Namespace, config: AppConfig) -> int:
+    """Run the requested strategy (or both) and print the results."""
+    components = make_components(config)
+    outcomes: list[SearchOutcome] = []
+    if args.strategy in ("evolution", "both"):
+        outcomes.append(run_strategy("evolution", config, components))
+    if args.strategy in ("random", "both"):
+        outcomes.append(run_strategy("random", config, components))
+    if args.json:
+        payload = [outcome.as_dict() for outcome in outcomes]
+        text = json.dumps(payload, indent=2)
+        print(text)
+        if args.out:
+            Path(args.out).write_text(text, encoding="utf-8")
+        return 0
+    for outcome in outcomes:
+        print(format_outcome(outcome))
+        print()
+    if len(outcomes) == 2:
+        comparison = compare_strategies(outcomes[0], outcomes[1])
+        print(format_table(comparison.rows()))
+        print(f"\nbudgets equal: {comparison.fair}  winner: {comparison.winner}  margin: {comparison.margin:+.4f}")
+        if not comparison.fair:
+            print("warning: the two runs did not spend the same budget, so the comparison is not meaningful")
+    if args.out:
+        write_json(outcomes[-1], args.out)
+        print(f"wrote {args.out}")
+    return 0
+
+
+def cmd_space(args: argparse.Namespace, config: AppConfig) -> int:
+    """Report the size of the space and one sampled architecture."""
+    space: SpaceConfig = config.space
+    n_archs = (N_OPS ** 4) * (space.max_blocks - space.min_blocks + 1) * len(space.width_choices)
+    rng = np.random.default_rng(config.seed)
+    sample = random_arch(rng, space)
+    print(f"operations: {', '.join(OP_NAMES)}")
+    print(f"blocks: {space.min_blocks}..{space.max_blocks}  widths: {list(space.width_choices)}")
+    print(f"architectures: {n_archs}")
+    print(f"example: {sample.key}")
+    print(f"supernet parameters: {Supernet(space).n_parameters()}")
+    print(f"standalone parameters for the example: {count_parameters(build_network(sample))}")
+    return 0

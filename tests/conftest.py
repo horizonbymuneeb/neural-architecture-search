@@ -11,3 +11,5 @@ from pathlib import Path
 import torch
 
 torch.set_num_threads(1)
+
+SRC = Path(__file__).resolve().parents[1] / "src"
