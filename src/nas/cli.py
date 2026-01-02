@@ -150,3 +150,20 @@ def cmd_config(args: argparse.Namespace, config: AppConfig) -> int:
         return 0
     print(json.dumps(config_as_dict(config), indent=2))
     return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Parse arguments, load config, dispatch."""
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    try:
+        config = load_config(args.config)
+    except (FileNotFoundError, ValueError) as exc:
+        print(f"config error: {exc}", file=sys.stderr)
+        return 2
+    handlers = {"search": cmd_search, "space": cmd_space, "data": cmd_data, "config": cmd_config}
+    return handlers[args.command](args, config)
+
+
+if __name__ == "__main__":  # pragma: no cover
+    raise SystemExit(main())
