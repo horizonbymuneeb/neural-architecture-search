@@ -71,3 +71,23 @@ class AppConfig:
     def random_config(self) -> RandomSearchConfig:
         """Baseline budget, derived from the evolutionary plan."""
         return RandomSearchConfig(candidates=self.planned_evaluations)
+
+
+def _section(raw: dict[str, Any], key: str) -> dict[str, Any]:
+    value = raw.get(key, {})
+    if not isinstance(value, dict):
+        raise ValueError(f"config section {key!r} must be a mapping, got {type(value).__name__}")
+    return value
+
+
+def _build(cls: type, values: dict[str, Any], section: str) -> Any:
+    known = set(cls.__dataclass_fields__)
+    unknown = sorted(set(values) - known)
+    if unknown:
+        raise ValueError(f"unknown keys in {section}: {unknown}")
+    if cls is SpaceConfig and "width_choices" in values:
+        values = {**values, "width_choices": tuple(int(width) for width in values["width_choices"])}
+    try:
+        return cls(**values)
+    except TypeError as exc:
+        raise ValueError(f"bad value in {section}: {exc}") from exc
