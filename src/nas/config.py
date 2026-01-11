@@ -91,3 +91,75 @@ def _build(cls: type, values: dict[str, Any], section: str) -> Any:
         return cls(**values)
     except TypeError as exc:
         raise ValueError(f"bad value in {section}: {exc}") from exc
+
+
+def load_config(path: str | Path | None = None) -> AppConfig:
+    """Read and validate ``config.yaml``."""
+    resolved = Path(path) if path is not None else DEFAULT_CONFIG_PATH
+    if not resolved.exists():
+        raise FileNotFoundError(f"config file not found: {resolved}")
+    raw = yaml.safe_load(resolved.read_text(encoding="utf-8")) or {}
+    if not isinstance(raw, dict):
+        raise ValueError("config file must contain a mapping at the top level")
+    seed = raw.get("seed", 0)
+    output_dir = raw.get("output_dir", "artifacts")
+    if not isinstance(seed, int) or seed < 0:
+        raise ValueError(f"seed must be a non-negative integer, got {seed!r}")
+    try:
+        return AppConfig(
+            space=_build(SpaceConfig, _section(raw, "space"), "space"),
+            task=_build(TaskConfig, _section(raw, "task"), "task"),
+            training=_build(TrainConfig, _section(raw, "training"), "training"),
+            evolution=_build(EvolutionConfig, _section(raw, "evolution"), "evolution"),
+            budget=_build(BudgetLimits, _section(raw, "budget"), "budget"),
+            seed=seed,
+            output_dir=str(output_dir),
+        )
+    except ValueError as exc:
+        raise ValueError(f"invalid config {resolved}: {exc}") from exc
+
+
+def default_config_yaml() -> str:
+    """Serialise the built-in defaults; the CLI prints this for reference."""
+    return yaml.safe_dump(
+        {
+            "seed": 0,
+            "output_dir": "artifacts",
+            "space": {
+                "min_blocks": 1,
+                "max_blocks": 3,
+                "width": 8,
+                "width_choices": [8],
+                "n_classes": 3,
+                "in_channels": 3,
+            },
+            "task": {
+                "n_samples": 600,
+                "size": 12,
+                "n_classes": 3,
+                "noise": 0.2,
+                "seed": 0,
+                "val_fraction": 0.25,
+            },
+            "training": {
+                "epochs": 4,
+                "batch_size": 64,
+                "learning_rate": 0.01,
+                "weight_decay": 0.0,
+            },
+            "evolution": {
+                "population_size": 6,
+                "generations": 2,
+                "tournament_size": 3,
+                "mutation_rate": 0.3,
+                "crossover_rate": 0.6,
+                "elite": 1,
+            },
+            "budget": {
+                "max_candidates": 16,
+                "max_samples": 200000,
+                "epochs_per_candidate": 4,
+            },
+        },
+        sort_keys=False,
+    )
