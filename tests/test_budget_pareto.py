@@ -44,3 +44,40 @@ def test_candidate_record_reports_efficiency_and_rows() -> None:
     row = entry.as_row()
     assert row["arch"] == "arch-0"
     assert row["accuracy"] == 0.8
+
+
+def test_budget_limits_validation() -> None:
+    with pytest.raises(ValueError, match="max_candidates"):
+        BudgetLimits(max_candidates=0)
+    with pytest.raises(ValueError, match="max_samples"):
+        BudgetLimits(max_samples=0)
+    with pytest.raises(ValueError, match="epochs_per_candidate"):
+        BudgetLimits(epochs_per_candidate=0)
+
+
+def test_accountant_records_and_aggregates() -> None:
+    accountant = BudgetAccountant(limits=BudgetLimits(max_candidates=3, max_samples=10_000), strategy="unit")
+    assert accountant.remaining == 3
+    assert accountant.summary().n_candidates == 0
+    accountant.record("a", 0.4, 1000, samples=100, updates=5, seconds=0.1)
+    accountant.record("b", 0.7, 2000, samples=200, updates=10, seconds=0.3)
+    assert accountant.spent_candidates == 2
+    assert accountant.spent_samples == 300
+    assert accountant.spent_updates == 15
+    assert accountant.spent_seconds == pytest.approx(0.4)
+    assert accountant.remaining == 1
+    summary = accountant.summary()
+    assert summary.mean_accuracy == pytest.approx(0.55)
+    assert summary.best_accuracy == pytest.approx(0.7)
+    assert summary.n_candidates == 2
+    assert accountant.best().arch_key == "b"
+    assert len(accountant.rows()) == 2
+
+
+def test_accountant_refuses_to_overspend() -> None:
+    accountant = BudgetAccountant(limits=BudgetLimits(max_candidates=1, max_samples=1000), strategy="unit")
+    accountant.record("a", 0.5, 100, samples=100, updates=1, seconds=0.1)
+    assert accountant.is_exhausted
+    assert not accountant.can_afford(100)
+    with pytest.raises(RuntimeError, match="budget exhausted"):
+        accountant.record("b", 0.5, 100, samples=100, updates=1, seconds=0.1)

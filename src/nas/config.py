@@ -163,3 +163,44 @@ def default_config_yaml() -> str:
         },
         sort_keys=False,
     )
+
+
+def config_as_dict(config: AppConfig) -> dict[str, Any]:
+    """Flatten a config for the CLI's ``config`` command."""
+    return {
+        "seed": config.seed,
+        "output_dir": config.output_dir,
+        "planned_evaluations": config.planned_evaluations,
+        "space": {
+            "min_blocks": config.space.min_blocks,
+            "max_blocks": config.space.max_blocks,
+            "width": config.space.width,
+            "width_choices": list(config.space.width_choices),
+            "n_classes": config.space.n_classes,
+        },
+        "task": {
+            "n_samples": config.task.n_samples,
+            "size": config.task.size,
+            "noise": config.task.noise,
+            "val_fraction": config.task.val_fraction,
+        },
+        "training": {
+            "epochs": config.training.epochs,
+            "batch_size": config.training.batch_size,
+            "learning_rate": config.training.learning_rate,
+            "weight_decay": config.training.weight_decay,
+        },
+        "evolution": {
+            "population_size": config.evolution.population_size,
+            "generations": config.evolution.generations,
+            "tournament_size": config.evolution.tournament_size,
+            "mutation_rate": config.evolution.mutation_rate,
+            "crossover_rate": config.evolution.crossover_rate,
+            "elite": config.evolution.elite,
+        },
+        "budget": {
+            "max_candidates": config.budget.max_candidates,
+            "max_samples": config.budget.max_samples,
+            "epochs_per_candidate": config.budget.epochs_per_candidate,
+        },
+    }
