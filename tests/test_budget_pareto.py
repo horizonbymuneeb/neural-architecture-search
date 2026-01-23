@@ -81,3 +81,40 @@ def test_accountant_refuses_to_overspend() -> None:
     assert not accountant.can_afford(100)
     with pytest.raises(RuntimeError, match="budget exhausted"):
         accountant.record("b", 0.5, 100, samples=100, updates=1, seconds=0.1)
+
+
+def test_accountant_respects_the_sample_ceiling() -> None:
+    accountant = BudgetAccountant(limits=BudgetLimits(max_candidates=10, max_samples=150), strategy="unit")
+    accountant.record("a", 0.5, 100, samples=100, updates=1, seconds=0.1)
+    # slots remain by count, but the sample ceiling is what blocks the next one
+    assert accountant.remaining == 9
+    assert accountant.remaining_samples == 50
+    assert not accountant.can_afford(100)
+    assert accountant.can_afford(50)
+
+
+def test_spend_comparison_helpers() -> None:
+    left = BudgetSummary(
+        strategy="a", n_candidates=3, total_samples=300, total_updates=9,
+        total_seconds=1.0, mean_accuracy=0.5, best_accuracy=0.6, limits=BudgetLimits(),
+    )
+    right = BudgetSummary(
+        strategy="b", n_candidates=3, total_samples=300, total_updates=9,
+        total_seconds=2.0, mean_accuracy=0.55, best_accuracy=0.65, limits=BudgetLimits(),
+    )
+    assert compare_spend(left, right)
+    assert spend_gap(left, right) == (0, 0)
+    assert left.as_dict()["candidates"] == 3
+    unequal = BudgetSummary(
+        strategy="c", n_candidates=4, total_samples=400, total_updates=12,
+        total_seconds=3.0, mean_accuracy=0.5, best_accuracy=0.6, limits=BudgetLimits(),
+    )
+    assert not compare_spend(left, unequal)
+    assert spend_gap(left, unequal) == (1, 100)
+
+
+def test_pareto_point_validation() -> None:
+    with pytest.raises(ValueError, match="accuracy"):
+        ParetoPoint(arch_key="a", accuracy=-0.1, parameters=10)
+    with pytest.raises(ValueError, match="parameters"):
+        ParetoPoint(arch_key="a", accuracy=0.5, parameters=-5)

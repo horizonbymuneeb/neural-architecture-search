@@ -21,3 +21,4 @@ from torch.utils.data import DataLoader, TensorDataset
 
 DEFAULT_SIZE: int = 12
 DEFAULT_N_CLASSES: int = 3
+DEFAULT_NOISE: float = 0.2
