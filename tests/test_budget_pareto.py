@@ -118,3 +118,49 @@ def test_pareto_point_validation() -> None:
         ParetoPoint(arch_key="a", accuracy=-0.1, parameters=10)
     with pytest.raises(ValueError, match="parameters"):
         ParetoPoint(arch_key="a", accuracy=0.5, parameters=-5)
+
+
+def test_dominance_is_strict_on_at_least_one_axis() -> None:
+    strong = ParetoPoint(arch_key="a", accuracy=0.8, parameters=1000)
+    weak = ParetoPoint(arch_key="b", accuracy=0.7, parameters=2000)
+    tradeoff = ParetoPoint(arch_key="c", accuracy=0.9, parameters=3000)
+    same = ParetoPoint(arch_key="d", accuracy=0.8, parameters=1000)
+    assert dominates(strong, weak)
+    assert not dominates(weak, strong)
+    assert not dominates(strong, tradeoff)
+    assert not dominates(strong, same)
+    assert dominates(strong, ParetoPoint(arch_key="e", accuracy=0.8, parameters=1500))
+
+
+def test_non_dominated_keeps_the_tradeoff_points_only() -> None:
+    points = [
+        ParetoPoint(arch_key="a", accuracy=0.6, parameters=500),
+        ParetoPoint(arch_key="b", accuracy=0.7, parameters=1500),
+        ParetoPoint(arch_key="c", accuracy=0.5, parameters=800),
+        ParetoPoint(arch_key="d", accuracy=0.75, parameters=2000),
+    ]
+    front = non_dominated(points)
+    keys = [point.arch_key for point in front]
+    assert keys == ["a", "b", "d"]
+    assert "c" not in keys
+
+
+def test_front_adds_and_prunes() -> None:
+    front = ParetoFront()
+    assert front.size == 0
+    assert front.best_accuracy() is None
+    assert front.smallest() is None
+    assert front.hypervolume() == 0.0
+    assert front.add(ParetoPoint(arch_key="a", accuracy=0.6, parameters=1000)) is True
+    assert front.add(ParetoPoint(arch_key="b", accuracy=0.6, parameters=1000)) is False
+    assert front.add(ParetoPoint(arch_key="c", accuracy=0.5, parameters=2000)) is False
+    assert front.add(ParetoPoint(arch_key="d", accuracy=0.7, parameters=3000)) is True
+    assert front.size == 2
+    assert [point.arch_key for point in front.front()] == ["a", "d"]
+    # a point that dominates an existing one removes it
+    assert front.add(ParetoPoint(arch_key="e", accuracy=0.65, parameters=900)) is True
+    assert [point.arch_key for point in front.front()] == ["e", "d"]
+    assert front.smallest().arch_key == "e"
+    assert front.best_accuracy().arch_key == "d"
+    assert front.covers_accuracy(0.66) is True
+    assert front.covers_accuracy(0.99) is False
