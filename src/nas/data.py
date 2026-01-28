@@ -47,3 +47,60 @@ class TaskConfig:
             raise ValueError(f"noise must be >= 0, got {self.noise}")
         if not 0.0 < self.val_fraction < 1.0:
             raise ValueError(f"val_fraction must be in (0, 1), got {self.val_fraction}")
+
+
+@dataclass(frozen=True)
+class TaskData:
+    """Images, labels and the split that was derived from them."""
+
+    train_images: torch.Tensor
+    train_labels: torch.Tensor
+    val_images: torch.Tensor
+    val_labels: torch.Tensor
+
+    @property
+    def n_train(self) -> int:
+        return int(self.train_images.shape[0])
+
+    @property
+    def n_val(self) -> int:
+        return int(self.val_images.shape[0])
+
+    @property
+    def image_shape(self) -> tuple[int, int, int]:
+        return tuple(self.train_images.shape[1:])  # type: ignore[return-value]
+
+
+def pattern_masks(size: int, n_classes: int) -> list[np.ndarray]:
+    """One binary mask per class: a bright vertical band in a different third.
+
+    The bands are large enough that global average pooling preserves the
+    difference, which is what makes three or four epochs enough to separate the
+    classes. A subtle pattern would make accuracy differences between
+    architectures indistinguishable from training noise.
+    """
+    if size < n_classes * 2:
+        raise ValueError(f"size {size} is too small for {n_classes} distinct bands")
+    masks: list[np.ndarray] = []
+    band = size // n_classes
+    for index in range(n_classes):
+        mask = np.zeros((size, size), dtype=np.float32)
+        start = index * band
+        stop = size if index == n_classes - 1 else (index + 1) * band
+        mask[1 : size - 1, start:stop] = 1.0
+        masks.append(mask)
+    return masks
+
+
+def make_images(config: TaskConfig) -> tuple[np.ndarray, np.ndarray]:
+    """Render the task: balanced labels, patterned images, additive noise."""
+    rng = np.random.default_rng(config.seed)
+    masks = pattern_masks(config.size, config.n_classes)
+    labels = np.arange(config.n_samples) % config.n_classes
+    rng.shuffle(labels)
+    images = rng.normal(0.0, config.noise, size=(config.n_samples, 3, config.size, config.size)).astype(np.float32)
+    for row, label in enumerate(labels):
+        mask = masks[int(label)]
+        for channel, gain in enumerate(CHANNEL_GAINS):
+            images[row, channel] += gain * mask
+    return images, labels.astype(np.int64)
