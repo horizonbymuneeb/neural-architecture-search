@@ -164,3 +164,25 @@ def test_front_adds_and_prunes() -> None:
     assert front.best_accuracy().arch_key == "d"
     assert front.covers_accuracy(0.66) is True
     assert front.covers_accuracy(0.99) is False
+
+
+def test_hypervolume_matches_a_hand_computed_area() -> None:
+    front = ParetoFront()
+    front.add(ParetoPoint(arch_key="small", accuracy=0.5, parameters=100))
+    front.add(ParetoPoint(arch_key="large", accuracy=0.9, parameters=500))
+    # reference point (accuracy 0, parameters 500):
+    # small contributes (0.5 - 0) * (500 - 100) = 200
+    # large contributes (0.9 - 0.5) * (500 - 500) = 0
+    assert front.hypervolume(reference_accuracy=0.0, reference_parameters=500) == pytest.approx(200.0)
+
+
+def test_front_merge_and_rows() -> None:
+    left = ParetoFront()
+    left.add(ParetoPoint(arch_key="a", accuracy=0.6, parameters=1000))
+    right = ParetoFront()
+    right.add(ParetoPoint(arch_key="b", accuracy=0.8, parameters=2000))
+    merged = left.merge(right)
+    assert merged.size == 2
+    rows = merged.to_rows()
+    assert rows[0]["arch"] == "a"
+    assert front_from_records([("x", 0.5, 100), ("y", 0.6, 200)]).size == 2

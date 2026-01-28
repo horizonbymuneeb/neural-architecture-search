@@ -104,3 +104,18 @@ def make_images(config: TaskConfig) -> tuple[np.ndarray, np.ndarray]:
         for channel, gain in enumerate(CHANNEL_GAINS):
             images[row, channel] += gain * mask
     return images, labels.astype(np.int64)
+
+
+def train_val_split(
+    images: np.ndarray, labels: np.ndarray, val_fraction: float, seed: int
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Deterministic shuffle-then-cut split."""
+    if images.shape[0] != labels.shape[0]:
+        raise ValueError("images and labels must have the same length")
+    if not 0.0 < val_fraction < 1.0:
+        raise ValueError(f"val_fraction must be in (0, 1), got {val_fraction}")
+    rng = np.random.default_rng(seed)
+    order = rng.permutation(images.shape[0])
+    n_val = max(1, int(round(images.shape[0] * val_fraction)))
+    val_index, train_index = order[:n_val], order[n_val:]
+    return images[train_index], labels[train_index], images[val_index], labels[val_index]
