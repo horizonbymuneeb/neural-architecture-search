@@ -119,3 +119,36 @@ def train_val_split(
     n_val = max(1, int(round(images.shape[0] * val_fraction)))
     val_index, train_index = order[:n_val], order[n_val:]
     return images[train_index], labels[train_index], images[val_index], labels[val_index]
+
+
+def make_task(config: TaskConfig | None = None) -> TaskData:
+    """Build the task and its split in one call."""
+    config = config or TaskConfig()
+    images, labels = make_images(config)
+    train_images, train_labels, val_images, val_labels = train_val_split(
+        images, labels, config.val_fraction, config.seed + 1
+    )
+    return TaskData(
+        train_images=torch.as_tensor(train_images),
+        train_labels=torch.as_tensor(train_labels),
+        val_images=torch.as_tensor(val_images),
+        val_labels=torch.as_tensor(val_labels),
+    )
+
+
+def make_loader(
+    images: torch.Tensor, labels: torch.Tensor, batch_size: int, shuffle: bool, seed: int = 0
+) -> DataLoader:
+    """Wrap tensors in a DataLoader with a seeded generator."""
+    if batch_size < 1:
+        raise ValueError(f"batch_size must be >= 1, got {batch_size}")
+    if images.shape[0] != labels.shape[0]:
+        raise ValueError("images and labels must have the same length")
+    generator = torch.Generator().manual_seed(int(seed))
+    return DataLoader(
+        TensorDataset(images, labels),
+        batch_size=batch_size,
+        shuffle=shuffle,
+        generator=generator,
+        drop_last=False,
+    )
