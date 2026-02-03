@@ -152,3 +152,23 @@ def make_loader(
         generator=generator,
         drop_last=False,
     )
+
+
+def class_balance(labels: torch.Tensor) -> dict[int, int]:
+    """Counts per class, for checking the task really is balanced."""
+    counts = torch.bincount(labels.to(torch.int64))
+    return {int(index): int(count) for index, count in enumerate(counts.tolist())}
+
+
+def task_fingerprint(images: torch.Tensor) -> float:
+    """Cheap checksum used to assert determinism between two builds."""
+    return float(images.double().sum().item())
+
+
+def describe_task(task: TaskData) -> str:
+    """One-line summary printed by the CLI."""
+    shape = "x".join(str(dimension) for dimension in task.image_shape)
+    return (
+        f"{task.n_train} train / {task.n_val} val images, shape {shape}, "
+        f"classes {class_balance(task.train_labels)}"
+    )
