@@ -31,3 +31,5 @@ from nas.trainer import (
     train_epoch,
     train_standalone,
 )
+
+OPS = (2, 2, 2, 2)

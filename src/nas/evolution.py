@@ -31,3 +31,5 @@ from .search_space import (
     random_arch,
 )
 from .trainer import Evaluator
+
+DEFAULT_POPULATION: int = 6
