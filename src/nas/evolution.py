@@ -33,3 +33,6 @@ from .search_space import (
 from .trainer import Evaluator
 
 DEFAULT_POPULATION: int = 6
+DEFAULT_GENERATIONS: int = 2
+DEFAULT_TOURNAMENT: int = 3
+DEFAULT_MUTATION_RATE: float = 0.3
