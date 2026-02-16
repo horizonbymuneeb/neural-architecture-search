@@ -38,3 +38,36 @@ DEFAULT_TOURNAMENT: int = 3
 DEFAULT_MUTATION_RATE: float = 0.3
 DEFAULT_CROSSOVER_RATE: float = 0.6
 DEFAULT_ELITE: int = 1
+
+
+@dataclass(frozen=True)
+class EvolutionConfig:
+    """Population shape and genetic operators."""
+
+    population_size: int = DEFAULT_POPULATION
+    generations: int = DEFAULT_GENERATIONS
+    tournament_size: int = DEFAULT_TOURNAMENT
+    mutation_rate: float = DEFAULT_MUTATION_RATE
+    crossover_rate: float = DEFAULT_CROSSOVER_RATE
+    elite: int = DEFAULT_ELITE
+
+    def __post_init__(self) -> None:
+        if self.population_size < 2:
+            raise ValueError(f"population_size must be >= 2, got {self.population_size}")
+        if self.generations < 0:
+            raise ValueError(f"generations must be >= 0, got {self.generations}")
+        if not 2 <= self.tournament_size <= self.population_size:
+            raise ValueError(
+                f"tournament_size must be in [2, {self.population_size}], got {self.tournament_size}"
+            )
+        if not 0.0 <= self.mutation_rate <= 1.0:
+            raise ValueError(f"mutation_rate must be in [0, 1], got {self.mutation_rate}")
+        if not 0.0 <= self.crossover_rate <= 1.0:
+            raise ValueError(f"crossover_rate must be in [0, 1], got {self.crossover_rate}")
+        if not 0 <= self.elite < self.population_size:
+            raise ValueError(f"elite must be in [0, {self.population_size}), got {self.elite}")
+
+    @property
+    def planned_evaluations(self) -> int:
+        """Total candidates this configuration will train."""
+        return self.population_size + self.generations * (self.population_size - self.elite)
