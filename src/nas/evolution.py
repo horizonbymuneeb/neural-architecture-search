@@ -71,3 +71,54 @@ class EvolutionConfig:
     def planned_evaluations(self) -> int:
         """Total candidates this configuration will train."""
         return self.population_size + self.generations * (self.population_size - self.elite)
+
+
+@dataclass(frozen=True)
+class Individual:
+    """One evaluated architecture."""
+
+    arch: ArchSpec
+    accuracy: float
+    parameters: int
+
+    @property
+    def key(self) -> str:
+        return self.arch.key
+
+    @property
+    def efficiency(self) -> float:
+        """Accuracy per thousand parameters."""
+        if self.parameters == 0:
+            return 0.0
+        return self.accuracy / (self.parameters / 1000.0)
+
+    def as_point(self) -> ParetoPoint:
+        return ParetoPoint(arch_key=self.arch.key, accuracy=self.accuracy, parameters=self.parameters)
+
+
+def evaluate_individual(evaluator: Evaluator, arch: ArchSpec) -> Individual:
+    """Train and score one architecture through the evaluator."""
+    accuracy, parameters = evaluator(arch)
+    return Individual(arch=arch, accuracy=float(accuracy), parameters=int(parameters))
+
+
+def initial_population(
+    evaluator: Evaluator,
+    config: EvolutionConfig,
+    rng: np.random.Generator,
+    space: SpaceConfig | None = None,
+) -> list[Individual]:
+    """Sample distinct architectures for generation zero."""
+    population: list[Individual] = []
+    seen: set[str] = set()
+    attempts = 0
+    while len(population) < config.population_size:
+        attempts += 1
+        if attempts > config.population_size * 20:
+            raise RuntimeError("could not sample a diverse initial population")
+        arch = random_arch(rng, space)
+        if arch.key in seen:
+            continue
+        seen.add(arch.key)
+        population.append(evaluate_individual(evaluator, arch))
+    return population
