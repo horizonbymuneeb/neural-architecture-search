@@ -92,3 +92,35 @@ def test_split_is_disjoint_and_complete(task) -> None:
         train_val_split(images, labels[:-1], 0.25, seed=9)
     with pytest.raises(ValueError, match="val_fraction"):
         train_val_split(images, labels, 1.5, seed=9)
+
+
+def test_loaders_batch_correctly(task) -> None:
+    loader = make_loader(task.train_images, task.train_labels, 64, True, 0)
+    batches = list(loader)
+    assert len(batches) == 8  # 450 train rows, 64 per batch
+    images, labels = batches[0]
+    assert tuple(images.shape[1:]) == (3, 12, 12)
+    assert labels.shape[0] == images.shape[0]
+    with pytest.raises(ValueError, match="batch_size"):
+        make_loader(task.train_images, task.train_labels, 0, True)
+    with pytest.raises(ValueError, match="same length"):
+        make_loader(task.train_images, task.train_labels[:-1], 8, True)
+
+
+def test_task_config_validation() -> None:
+    with pytest.raises(ValueError, match="n_samples"):
+        TaskConfig(n_samples=5)
+    with pytest.raises(ValueError, match="size"):
+        TaskConfig(size=4)
+    with pytest.raises(ValueError, match="n_classes"):
+        TaskConfig(n_classes=1)
+    with pytest.raises(ValueError, match="noise"):
+        TaskConfig(noise=-1.0)
+    with pytest.raises(ValueError, match="val_fraction"):
+        TaskConfig(val_fraction=0.0)
+
+
+def test_describe_task_reports_shapes_and_balance(task) -> None:
+    text = describe_task(task)
+    assert "train" in text and "val" in text
+    assert "3x12x12" in text

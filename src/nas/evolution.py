@@ -122,3 +122,28 @@ def initial_population(
         seen.add(arch.key)
         population.append(evaluate_individual(evaluator, arch))
     return population
+
+
+def tournament_select(population: list[Individual], rng: np.random.Generator, k: int) -> Individual:
+    """Pick the best of ``k`` random individuals."""
+    if not population:
+        raise ValueError("cannot select from an empty population")
+    if not 1 <= k <= len(population):
+        raise ValueError(f"tournament size {k} outside [1, {len(population)}]")
+    contenders = rng.choice(len(population), size=k, replace=False)
+    return max((population[int(index)] for index in contenders), key=lambda item: item.accuracy)
+
+
+def breed(
+    parent_a: Individual,
+    parent_b: Individual,
+    rng: np.random.Generator,
+    config: EvolutionConfig,
+    space: SpaceConfig | None = None,
+) -> ArchSpec:
+    """Crossover (with probability) then mutate, inside the configured space."""
+    if rng.random() < config.crossover_rate:
+        child = crossover(parent_a.arch, parent_b.arch, rng)
+    else:
+        child = parent_a.arch
+    return mutate(child, rng, config.mutation_rate, space)
