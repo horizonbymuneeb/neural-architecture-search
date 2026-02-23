@@ -147,3 +147,27 @@ def breed(
     else:
         child = parent_a.arch
     return mutate(child, rng, config.mutation_rate, space)
+
+
+def next_generation(
+    population: list[Individual],
+    evaluator: Evaluator,
+    config: EvolutionConfig,
+    rng: np.random.Generator,
+    space: SpaceConfig | None = None,
+    evaluated: set[str] | None = None,
+) -> list[Individual]:
+    """Elite plus evaluated children, with duplicate architectures skipped."""
+    ranked = sorted(population, key=lambda item: item.accuracy, reverse=True)
+    generation: list[Individual] = list(ranked[: config.elite])
+    seen = set(evaluated or set())
+    seen.update(item.key for item in population)
+    while len(generation) < config.population_size:
+        parent_a = tournament_select(population, rng, config.tournament_size)
+        parent_b = tournament_select(population, rng, config.tournament_size)
+        child = breed(parent_a, parent_b, rng, config, space)
+        if child.key in seen:
+            continue
+        seen.add(child.key)
+        generation.append(evaluate_individual(evaluator, child))
+    return generation

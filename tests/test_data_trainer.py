@@ -124,3 +124,26 @@ def test_describe_task_reports_shapes_and_balance(task) -> None:
     text = describe_task(task)
     assert "train" in text and "val" in text
     assert "3x12x12" in text
+
+
+def test_train_config_validation() -> None:
+    with pytest.raises(ValueError, match="epochs"):
+        TrainConfig(epochs=0)
+    with pytest.raises(ValueError, match="learning_rate"):
+        TrainConfig(learning_rate=2.0)
+    with pytest.raises(ValueError, match="weight_decay"):
+        TrainConfig(weight_decay=-0.1)
+
+
+def test_count_updates_matches_the_loader() -> None:
+    assert count_updates(180, 64, 2) == 6
+    assert count_updates(64, 64, 1) == 1
+    with pytest.raises(ValueError, match="positive"):
+        count_updates(0, 64, 1)
+
+
+def test_untrained_accuracy_is_near_chance(loaders) -> None:
+    train_loader, val_loader = loaders
+    model = torch.nn.Sequential(torch.nn.Flatten(), torch.nn.Linear(3 * 12 * 12, 3))
+    accuracy = evaluate_accuracy(model, val_loader)
+    assert 0.0 <= accuracy <= 1.0
