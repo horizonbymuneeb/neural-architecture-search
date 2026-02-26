@@ -171,3 +171,52 @@ def next_generation(
         seen.add(child.key)
         generation.append(evaluate_individual(evaluator, child))
     return generation
+
+
+def population_diversity(population: list[Individual]) -> float:
+    """Share of distinct architectures in the population."""
+    if not population:
+        return 0.0
+    return len({item.key for item in population}) / len(population)
+
+
+def evolve(
+    evaluator: Evaluator,
+    config: EvolutionConfig,
+    accountant: BudgetAccountant,
+    seed: int = 0,
+    space: SpaceConfig | None = None,
+) -> SearchOutcome:
+    """Run the whole search and return the records, front and history."""
+    rng = np.random.default_rng(seed)
+    front = ParetoFront()
+    history: list[float] = []
+    evaluated: set[str] = set()
+
+    population = initial_population(evaluator, config, rng, space)
+    for individual in population:
+        evaluated.add(individual.key)
+        front.add(individual.as_point())
+    history.append(max(item.accuracy for item in population))
+
+    for _ in range(config.generations):
+        population = next_generation(population, evaluator, config, rng, space, evaluated)
+        for individual in population:
+            evaluated.add(individual.key)
+            front.add(individual.as_point())
+        history.append(max(item.accuracy for item in population))
+
+    return SearchOutcome(
+        strategy="evolution",
+        records=tuple(accountant.records),
+        front=front,
+        history=tuple(history),
+        budget=accountant.summary(),
+    )
+
+
+def best_individual(population: list[Individual]) -> Individual | None:
+    """Most accurate individual, ties broken by fewer parameters."""
+    if not population:
+        return None
+    return max(population, key=lambda item: (item.accuracy, -item.parameters))
