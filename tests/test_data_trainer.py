@@ -147,3 +147,36 @@ def test_untrained_accuracy_is_near_chance(loaders) -> None:
     model = torch.nn.Sequential(torch.nn.Flatten(), torch.nn.Linear(3 * 12 * 12, 3))
     accuracy = evaluate_accuracy(model, val_loader)
     assert 0.0 <= accuracy <= 1.0
+
+
+def test_training_reduces_loss_and_beats_chance(loaders) -> None:
+    train_loader, val_loader = loaders
+    arch = ArchSpec(ops=OPS, blocks=2, width=8)
+    torch.manual_seed(0)
+    result = train_standalone(arch, train_loader, val_loader, TrainConfig(epochs=4, learning_rate=0.01))
+    assert len(result.loss_history) == 4
+    assert result.final_loss < result.loss_history[0]
+    assert result.accuracy > 0.6
+    assert result.n_parameters == estimate_parameters(arch)
+    assert result.n_updates == count_updates(result.n_samples, 64, 4)
+    assert result.accuracy > 0.85
+    assert result.seconds > 0.0
+
+
+def test_train_epoch_returns_a_finite_loss(loaders) -> None:
+    train_loader, _ = loaders
+    model = torch.nn.Sequential(torch.nn.Flatten(), torch.nn.Linear(3 * 12 * 12, 3))
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
+    loss = train_epoch(model, train_loader, optimizer)
+    assert np.isfinite(loss)
+
+
+def test_train_arch_reports_the_architecture_parameter_count(loaders) -> None:
+    train_loader, val_loader = loaders
+    torch.manual_seed(0)
+    supernet = Supernet()
+    arch = ArchSpec(ops=OPS, blocks=2, width=8)
+    result = train_arch(supernet, arch, train_loader, val_loader, TrainConfig(epochs=1))
+    assert result.n_parameters == estimate_parameters(arch)
+    assert 0.0 <= result.accuracy <= 1.0
+    assert len(result.loss_history) == 1

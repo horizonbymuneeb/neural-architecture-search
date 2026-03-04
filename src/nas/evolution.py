@@ -220,3 +220,17 @@ def best_individual(population: list[Individual]) -> Individual | None:
     if not population:
         return None
     return max(population, key=lambda item: (item.accuracy, -item.parameters))
+
+
+def op_usage(population: list[Individual]) -> dict[str, int]:
+    """Operation frequencies across a population, for the diversity report."""
+    from .search_space import op_histogram
+
+    return op_histogram([item.arch for item in population])
+
+
+def arch_distance(left: ArchSpec, right: ArchSpec) -> int:
+    """Hamming distance over the operation vector."""
+    if len(left.ops) != len(right.ops):
+        raise ValueError("architectures must share the same edge count")
+    return sum(1 for a, b in zip(left.ops, right.ops) if int(a) != int(b))
