@@ -180,3 +180,36 @@ def test_train_arch_reports_the_architecture_parameter_count(loaders) -> None:
     assert result.n_parameters == estimate_parameters(arch)
     assert 0.0 <= result.accuracy <= 1.0
     assert len(result.loss_history) == 1
+
+
+def test_arch_view_is_an_ordinary_module(loaders) -> None:
+    _, val_loader = loaders
+    torch.manual_seed(0)
+    supernet = Supernet()
+    view = ArchView(supernet, ArchSpec(ops=OPS, blocks=1, width=8))
+    accuracy = evaluate_accuracy(view, val_loader)
+    assert 0.0 <= accuracy <= 1.0
+
+
+def test_evaluator_records_into_the_accountant(loaders) -> None:
+    train_loader, val_loader = loaders
+    torch.manual_seed(0)
+    supernet = Supernet()
+    accountant = BudgetAccountant(limits=BudgetLimits(max_candidates=2), strategy="unit")
+    evaluator = make_evaluator(supernet, train_loader, val_loader, TrainConfig(epochs=1), accountant)
+    arch = ArchSpec(ops=OPS, blocks=1, width=8)
+    accuracy, parameters = evaluator(arch)
+    assert 0.0 <= accuracy <= 1.0
+    assert parameters == estimate_parameters(arch)
+    assert accountant.spent_candidates == 1
+    assert accountant.records[0].strategy == "unit"
+    assert accountant.records[0].samples == 450
+    evaluator(ArchSpec(ops=(3, 3, 3, 3), blocks=1, width=8))
+    with pytest.raises(RuntimeError, match="budget exhausted"):
+        evaluator(ArchSpec(ops=(4, 4, 4, 4), blocks=1, width=8))
+
+
+def test_train_candidate_rejects_a_parameter_free_model(loaders) -> None:
+    train_loader, val_loader = loaders
+    with pytest.raises(ValueError, match="no trainable parameters"):
+        train_candidate(torch.nn.Identity(), train_loader, val_loader, TrainConfig(epochs=1))

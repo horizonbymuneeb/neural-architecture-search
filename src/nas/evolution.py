@@ -234,3 +234,25 @@ def arch_distance(left: ArchSpec, right: ArchSpec) -> int:
     if len(left.ops) != len(right.ops):
         raise ValueError("architectures must share the same edge count")
     return sum(1 for a, b in zip(left.ops, right.ops) if int(a) != int(b))
+
+
+def unique_keys(population: list[Individual]) -> list[str]:
+    """Distinct architecture keys, in population order."""
+    keys: list[str] = []
+    for item in population:
+        if item.key not in keys:
+            keys.append(item.key)
+    return keys
+
+
+def dedupe(archs: list[ArchSpec]) -> list[ArchSpec]:
+    """Drop repeated architectures while preserving order."""
+    seen: set[str] = set()
+    unique: list[ArchSpec] = []
+    for arch in archs:
+        key = arch_key(arch)
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(arch)
+    return unique
