@@ -138,3 +138,11 @@ class ParetoFront:
         for point in self.points + other.points:
             merged.add(point)
         return merged
+
+
+def front_from_records(records: list[tuple[str, float, int]]) -> ParetoFront:
+    """Build a front from ``(arch_key, accuracy, parameters)`` triples."""
+    front = ParetoFront()
+    for arch_key, accuracy, parameters in records:
+        front.add(ParetoPoint(arch_key=arch_key, accuracy=accuracy, parameters=parameters))
+    return front
