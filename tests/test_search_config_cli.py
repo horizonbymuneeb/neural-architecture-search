@@ -45,3 +45,5 @@ from nas.results import (
 from nas.search_space import ArchSpec, SpaceConfig
 from nas.supernet import Supernet
 from nas.trainer import TrainConfig, make_evaluator
+
+TINY_TASK = TaskConfig(n_samples=90, seed=0)
