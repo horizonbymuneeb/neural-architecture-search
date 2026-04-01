@@ -47,3 +47,4 @@ from nas.supernet import Supernet
 from nas.trainer import TrainConfig, make_evaluator
 
 TINY_TASK = TaskConfig(n_samples=90, seed=0)
+TINY_TRAIN = TrainConfig(epochs=1, batch_size=32)

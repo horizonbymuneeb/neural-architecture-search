@@ -23,3 +23,15 @@ from .search_space import SpaceConfig, random_arch
 from .trainer import Evaluator
 
 DEFAULT_CANDIDATES: int = 16
+MAX_SAMPLING_ATTEMPTS: int = 200
+
+
+@dataclass(frozen=True)
+class RandomSearchConfig:
+    """How many random architectures to evaluate."""
+
+    candidates: int = DEFAULT_CANDIDATES
+
+    def __post_init__(self) -> None:
+        if self.candidates < 1:
+            raise ValueError(f"candidates must be >= 1, got {self.candidates}")
