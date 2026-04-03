@@ -85,3 +85,21 @@ def random_search(
         history=tuple(history),
         budget=accountant.summary(),
     )
+
+
+def budget_for(config: RandomSearchConfig, evolution_planned: int) -> RandomSearchConfig:
+    """Build the baseline config for an evolutionary run's evaluation count.
+
+    The number is taken from the other run rather than guessed, which is what
+    keeps the two strategies comparable.
+    """
+    if evolution_planned < 1:
+        raise ValueError("evolution_planned must be >= 1")
+    return RandomSearchConfig(candidates=int(evolution_planned))
+
+
+def expected_unique_coverage(config: RandomSearchConfig, space_size: int) -> float:
+    """Share of the space a random run is expected to touch (upper bound)."""
+    if space_size < 1:
+        raise ValueError("space_size must be >= 1")
+    return min(1.0, config.candidates / space_size)

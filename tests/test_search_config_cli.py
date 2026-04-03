@@ -48,3 +48,6 @@ from nas.trainer import TrainConfig, make_evaluator
 
 TINY_TASK = TaskConfig(n_samples=90, seed=0)
 TINY_TRAIN = TrainConfig(epochs=1, batch_size=32)
+
+
+TINY_SPACE = SpaceConfig(min_blocks=1, max_blocks=2)
