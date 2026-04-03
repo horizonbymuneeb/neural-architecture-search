@@ -35,3 +35,53 @@ class RandomSearchConfig:
     def __post_init__(self) -> None:
         if self.candidates < 1:
             raise ValueError(f"candidates must be >= 1, got {self.candidates}")
+
+
+def sample_unique_architectures(
+    n_candidates: int,
+    rng: np.random.Generator,
+    space: SpaceConfig | None = None,
+) -> list:
+    """Draw ``n_candidates`` distinct architectures."""
+    if n_candidates < 1:
+        raise ValueError(f"n_candidates must be >= 1, got {n_candidates}")
+    space = space or SpaceConfig()
+    archs = []
+    seen: set[str] = set()
+    attempts = 0
+    while len(archs) < n_candidates:
+        attempts += 1
+        if attempts > n_candidates * MAX_SAMPLING_ATTEMPTS:
+            raise RuntimeError("search space too small for the requested number of distinct candidates")
+        arch = random_arch(rng, space)
+        if arch.key in seen:
+            continue
+        seen.add(arch.key)
+        archs.append(arch)
+    return archs
+
+
+def random_search(
+    evaluator: Evaluator,
+    config: RandomSearchConfig,
+    accountant: BudgetAccountant,
+    seed: int = 0,
+    space: SpaceConfig | None = None,
+) -> SearchOutcome:
+    """Evaluate uniformly sampled architectures until the budget is spent."""
+    rng = np.random.default_rng(seed)
+    front = ParetoFront()
+    history: list[float] = []
+    running_best = 0.0
+    for arch in sample_unique_architectures(config.candidates, rng, space):
+        accuracy, parameters = evaluator(arch)
+        front.add(ParetoPoint(arch_key=arch.key, accuracy=float(accuracy), parameters=int(parameters)))
+        running_best = max(running_best, float(accuracy))
+        history.append(running_best)
+    return SearchOutcome(
+        strategy="random",
+        records=tuple(accountant.records),
+        front=front,
+        history=tuple(history),
+        budget=accountant.summary(),
+    )
