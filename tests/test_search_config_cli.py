@@ -97,3 +97,34 @@ def test_tournament_selects_the_best_contender() -> None:
         tournament_select([], np.random.default_rng(0), 1)
     with pytest.raises(ValueError, match="tournament size"):
         tournament_select(population, np.random.default_rng(0), 9)
+
+
+def test_initial_population_is_distinct_and_evaluated() -> None:
+    evaluator, accountant = tiny_evaluator(max_candidates=3)
+    population = initial_population(evaluator, EvolutionConfig(population_size=3), np.random.default_rng(0), TINY_SPACE)
+    assert len(population) == 3
+    assert len({item.key for item in population}) == 3
+    assert accountant.spent_candidates == 3
+    assert population_diversity(population) == 1.0
+
+
+def test_next_generation_keeps_the_elite_and_fills_the_population() -> None:
+    evaluator, accountant = tiny_evaluator(max_candidates=6)
+    config = EvolutionConfig(population_size=3, generations=1, tournament_size=2, elite=1)
+    population = initial_population(evaluator, EvolutionConfig(population_size=3), np.random.default_rng(1), TINY_SPACE)
+    elite = max(population, key=lambda item: item.accuracy)
+    generation = next_generation(population, evaluator, config, np.random.default_rng(2), TINY_SPACE)
+    assert len(generation) == 3
+    assert any(item.key == elite.key for item in generation)
+    assert len({item.key for item in generation}) == len(generation)
+
+
+def test_breed_respects_the_crossover_flag() -> None:
+    left = Individual(arch=ArchSpec(ops=(2, 2, 2, 2), blocks=1), accuracy=0.5, parameters=100)
+    right = Individual(arch=ArchSpec(ops=(3, 3, 3, 3), blocks=2), accuracy=0.6, parameters=200)
+    no_crossover = EvolutionConfig(crossover_rate=0.0, mutation_rate=0.0)
+    child = breed(left, right, np.random.default_rng(0), no_crossover)
+    assert child == left.arch
+    always_crossover = EvolutionConfig(crossover_rate=1.0, mutation_rate=0.0)
+    child = breed(left, right, np.random.default_rng(0), always_crossover)
+    assert set(child.ops) <= {2, 3}
