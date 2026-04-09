@@ -114,3 +114,29 @@ class StrategyComparison:
                 }
             )
         return rows
+
+
+def compare_strategies(left: SearchOutcome, right: SearchOutcome) -> StrategyComparison:
+    """Compare two runs, flagging a budget mismatch instead of hiding it."""
+    if left.strategy == right.strategy:
+        raise ValueError(f"cannot compare {left.strategy} with itself")
+    return StrategyComparison(
+        left=left,
+        right=right,
+        fair=compare_spend(left.budget, right.budget),
+        gap=spend_gap(left.budget, right.budget),
+    )
+
+
+def format_table(rows: list[dict[str, float | int | str]]) -> str:
+    """Render rows as a fixed-width text table."""
+    if not rows:
+        return "(no rows)"
+    columns = list(rows[0].keys())
+    widths = {column: max(len(column), *(len(str(row[column])) for row in rows)) for column in columns}
+    header = "  ".join(column.ljust(widths[column]) for column in columns)
+    rule = "  ".join("-" * widths[column] for column in columns)
+    lines = [header, rule]
+    for row in rows:
+        lines.append("  ".join(str(row[column]).ljust(widths[column]) for column in columns))
+    return "\n".join(lines)
