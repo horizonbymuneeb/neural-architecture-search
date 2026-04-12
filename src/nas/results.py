@@ -140,3 +140,25 @@ def format_table(rows: list[dict[str, float | int | str]]) -> str:
     for row in rows:
         lines.append("  ".join(str(row[column]).ljust(widths[column]) for column in columns))
     return "\n".join(lines)
+
+
+def format_outcome(outcome: SearchOutcome) -> str:
+    """Human-readable summary of one run."""
+    lines = [
+        f"strategy: {outcome.strategy}",
+        f"candidates: {outcome.n_evaluated}  samples: {outcome.budget.total_samples}  "
+        f"updates: {outcome.budget.total_updates}  seconds: {outcome.budget.total_seconds:.2f}",
+        f"best accuracy: {outcome.best_accuracy:.4f}  mean: {outcome.budget.mean_accuracy:.4f}",
+        "",
+        "pareto front (accuracy vs parameters)",
+        format_table(outcome.front.to_rows()) if outcome.front.size else "  (empty)",
+        "",
+        "top candidates",
+        format_table([record.as_row() for record in outcome.top(5)]),
+    ]
+    return "\n".join(lines)
+
+
+def to_json(outcome: SearchOutcome) -> str:
+    """Serialise an outcome for the CLI's ``--json`` flag."""
+    return json.dumps(outcome.as_dict(), indent=2)

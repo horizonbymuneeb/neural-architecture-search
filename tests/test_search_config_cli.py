@@ -128,3 +128,40 @@ def test_breed_respects_the_crossover_flag() -> None:
     always_crossover = EvolutionConfig(crossover_rate=1.0, mutation_rate=0.0)
     child = breed(left, right, np.random.default_rng(0), always_crossover)
     assert set(child.ops) <= {2, 3}
+
+
+def test_arch_distance_counts_differing_edges() -> None:
+    left = ArchSpec(ops=(2, 2, 2, 2), blocks=1)
+    right = ArchSpec(ops=(3, 2, 4, 2), blocks=1)
+    assert arch_distance(left, right) == 2
+    assert arch_distance(left, left) == 0
+
+
+def test_dedupe_and_unique_keys_preserve_order() -> None:
+    archs = [
+        ArchSpec(ops=(2, 2, 2, 2), blocks=1),
+        ArchSpec(ops=(2, 2, 2, 2), blocks=1),
+        ArchSpec(ops=(3, 3, 3, 3), blocks=1),
+    ]
+    assert len(dedupe(archs)) == 2
+    population = [
+        Individual(arch=archs[0], accuracy=0.5, parameters=1),
+        Individual(arch=archs[0], accuracy=0.6, parameters=1),
+    ]
+    assert unique_keys(population) == [archs[0].key]
+    assert best_individual(population).accuracy == 0.6
+    assert best_individual([]) is None
+    assert op_usage(population)["conv3x3"] == 8
+
+
+def test_evolve_spends_exactly_the_planned_budget() -> None:
+    config = EvolutionConfig(population_size=3, generations=1, tournament_size=2, elite=1)
+    evaluator, accountant = tiny_evaluator(max_candidates=config.planned_evaluations)
+    outcome = evolve(evaluator, config, accountant, seed=0, space=TINY_SPACE)
+    assert outcome.strategy == "evolution"
+    assert outcome.n_evaluated == config.planned_evaluations
+    assert accountant.spent_candidates == config.planned_evaluations
+    assert len(outcome.history) == config.generations + 1
+    assert outcome.front.size >= 1
+    assert 0.0 <= outcome.best_accuracy <= 1.0
+    assert len(set(outcome.accuracy_curve)) <= len(outcome.records)
