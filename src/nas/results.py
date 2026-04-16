@@ -162,3 +162,14 @@ def format_outcome(outcome: SearchOutcome) -> str:
 def to_json(outcome: SearchOutcome) -> str:
     """Serialise an outcome for the CLI's ``--json`` flag."""
     return json.dumps(outcome.as_dict(), indent=2)
+
+
+def write_json(outcome: SearchOutcome, path: str) -> None:
+    """Write the outcome to disk."""
+    with open(path, "w", encoding="utf-8") as handle:
+        handle.write(to_json(outcome))
+
+
+def accuracy_gain(outcome: SearchOutcome, baseline: float) -> float:
+    """Improvement of the best candidate over a random-guess baseline."""
+    return outcome.best_accuracy - baseline

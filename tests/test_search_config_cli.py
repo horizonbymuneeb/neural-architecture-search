@@ -165,3 +165,38 @@ def test_evolve_spends_exactly_the_planned_budget() -> None:
     assert outcome.front.size >= 1
     assert 0.0 <= outcome.best_accuracy <= 1.0
     assert len(set(outcome.accuracy_curve)) <= len(outcome.records)
+
+
+def test_evolve_is_deterministic_for_a_fixed_seed() -> None:
+    config = EvolutionConfig(population_size=3, generations=0, tournament_size=2, elite=0)
+    first_eval, first_accountant = tiny_evaluator(max_candidates=3)
+    second_eval, second_accountant = tiny_evaluator(max_candidates=3)
+    first = evolve(first_eval, config, first_accountant, seed=5, space=TINY_SPACE)
+    second = evolve(second_eval, config, second_accountant, seed=5, space=TINY_SPACE)
+    assert [record.arch_key for record in first.records] == [record.arch_key for record in second.records]
+    assert first.best_accuracy == pytest.approx(second.best_accuracy)
+
+
+def test_random_search_baseline() -> None:
+    evaluator, accountant = tiny_evaluator(max_candidates=4)
+    config = RandomSearchConfig(candidates=4)
+    outcome = random_search(evaluator, config, accountant, seed=1, space=TINY_SPACE)
+    assert outcome.strategy == "random"
+    assert outcome.n_evaluated == 4
+    assert len(outcome.history) == 4
+    assert len({record.arch_key for record in outcome.records}) == 4
+    assert outcome.front.size >= 1
+
+
+def test_random_search_config_and_helpers() -> None:
+    with pytest.raises(ValueError, match="candidates"):
+        RandomSearchConfig(candidates=0)
+    archs = sample_unique_architectures(5, np.random.default_rng(0), SpaceConfig(min_blocks=1, max_blocks=2))
+    assert len({arch.key for arch in archs}) == 5
+    with pytest.raises(ValueError, match="n_candidates"):
+        sample_unique_architectures(0, np.random.default_rng(0))
+    assert budget_for(RandomSearchConfig(), 16).candidates == 16
+    with pytest.raises(ValueError, match="evolution_planned"):
+        budget_for(RandomSearchConfig(), 0)
+    assert expected_unique_coverage(RandomSearchConfig(candidates=10), 100) == pytest.approx(0.1)
+    assert expected_unique_coverage(RandomSearchConfig(candidates=500), 100) == 1.0
