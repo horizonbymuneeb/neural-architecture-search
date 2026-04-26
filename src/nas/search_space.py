@@ -22,3 +22,5 @@ import numpy as np
 
 OP_NAMES: tuple[str, ...] = ("none", "skip", "conv3x3", "conv5x5", "maxpool3x3", "avgpool3x3")
 OP_INDEX: dict[str, int] = {name: index for index, name in enumerate(OP_NAMES)}
+N_OPS: int = len(OP_NAMES)
+CONV_OPS: frozenset[int] = frozenset({OP_INDEX["conv3x3"], OP_INDEX["conv5x5"]})

@@ -249,3 +249,41 @@ def test_outcome_helpers_and_formatting() -> None:
     assert len(payload["candidates"]) == 3
     assert format_table([]) == "(no rows)"
     assert "strategy" in format_table([{"strategy": "random", "candidates": 3}])
+
+
+def test_config_loader_reads_the_repository_file() -> None:
+    config = load_config("config.yaml")
+    assert isinstance(config, AppConfig)
+    assert config.planned_evaluations == config.evolution.planned_evaluations
+    assert config.random_config().candidates == config.planned_evaluations
+    assert config.budget.max_candidates >= config.planned_evaluations
+    assert config.training.epochs == config.budget.epochs_per_candidate
+    as_dict = config_as_dict(config)
+    assert as_dict["planned_evaluations"] == config.planned_evaluations
+
+
+def test_config_loader_rejects_bad_files(tmp_path: Path) -> None:
+    unknown = tmp_path / "unknown.yaml"
+    unknown.write_text("space:\n  max_blocks: 3\n  not_a_key: 1\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="unknown keys in space"):
+        load_config(unknown)
+    with pytest.raises(FileNotFoundError):
+        load_config(tmp_path / "missing.yaml")
+    mismatch = tmp_path / "mismatch.yaml"
+    mismatch.write_text(
+        default_config_yaml().replace("n_classes: 3\n  noise", "n_classes: 4\n  noise"), encoding="utf-8"
+    )
+    with pytest.raises(ValueError, match="n_classes"):
+        load_config(mismatch)
+
+
+def test_config_validation_catches_inconsistent_budgets(tmp_path: Path) -> None:
+    text = default_config_yaml()
+    small_budget = tmp_path / "small.yaml"
+    small_budget.write_text(text.replace("max_candidates: 16", "max_candidates: 4"), encoding="utf-8")
+    with pytest.raises(ValueError, match="max_candidates"):
+        load_config(small_budget)
+    wrong_epochs = tmp_path / "epochs.yaml"
+    wrong_epochs.write_text(text.replace("epochs: 4", "epochs: 2", 1), encoding="utf-8")
+    with pytest.raises(ValueError, match="epochs_per_candidate"):
+        load_config(wrong_epochs)
