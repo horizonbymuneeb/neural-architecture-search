@@ -200,3 +200,52 @@ def test_random_search_config_and_helpers() -> None:
         budget_for(RandomSearchConfig(), 0)
     assert expected_unique_coverage(RandomSearchConfig(candidates=10), 100) == pytest.approx(0.1)
     assert expected_unique_coverage(RandomSearchConfig(candidates=500), 100) == 1.0
+
+
+def test_comparison_flags_unequal_budgets() -> None:
+    eval_a, acc_a = tiny_evaluator(max_candidates=3, strategy="evolution")
+    config = EvolutionConfig(population_size=3, generations=0, tournament_size=2, elite=0)
+    left = evolve(eval_a, config, acc_a, seed=0, space=TINY_SPACE)
+    eval_b, acc_b = tiny_evaluator(max_candidates=2, strategy="random")
+    right = random_search(eval_b, RandomSearchConfig(candidates=2), acc_b, seed=0, space=TINY_SPACE)
+    comparison = compare_strategies(left, right)
+    assert comparison.fair is False
+    assert comparison.winner == "incomparable"
+    assert comparison.gap == (
+        right.n_evaluated - left.n_evaluated,
+        right.budget.total_samples - left.budget.total_samples,
+    )
+    rows = comparison.rows()
+    assert len(rows) == 2
+    assert rows[0]["strategy"] == "evolution"
+    with pytest.raises(ValueError, match="itself"):
+        compare_strategies(left, left)
+
+
+def test_comparison_of_equal_budgets_declares_a_winner() -> None:
+    eval_a, acc_a = tiny_evaluator(max_candidates=3, strategy="evolution")
+    left = evolve(eval_a, EvolutionConfig(population_size=3, generations=0, tournament_size=2, elite=0), acc_a, seed=2, space=TINY_SPACE)
+    eval_b, acc_b = tiny_evaluator(max_candidates=3, strategy="random")
+    right = random_search(eval_b, RandomSearchConfig(candidates=3), acc_b, seed=2, space=TINY_SPACE)
+    comparison = compare_strategies(left, right)
+    assert comparison.fair is True
+    assert comparison.winner in {"evolution", "random", "tie"}
+    assert comparison.margin == pytest.approx(left.best_accuracy - right.best_accuracy)
+
+
+def test_outcome_helpers_and_formatting() -> None:
+    evaluator, accountant = tiny_evaluator(max_candidates=3)
+    outcome = random_search(evaluator, RandomSearchConfig(candidates=3), accountant, seed=0, space=TINY_SPACE)
+    assert outcome.best is not None
+    assert outcome.top(2)
+    assert outcome.smallest_above(0.0) is not None
+    assert outcome.smallest_above(1.1) is None
+    assert outcome.budget.total_samples > 0
+    text = format_outcome(outcome)
+    assert "strategy: random" in text
+    assert "pareto front" in text
+    payload = json.loads(to_json(outcome))
+    assert payload["strategy"] == "random"
+    assert len(payload["candidates"]) == 3
+    assert format_table([]) == "(no rows)"
+    assert "strategy" in format_table([{"strategy": "random", "candidates": 3}])
