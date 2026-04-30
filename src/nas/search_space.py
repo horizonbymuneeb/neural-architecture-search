@@ -27,3 +27,4 @@ CONV_OPS: frozenset[int] = frozenset({OP_INDEX["conv3x3"], OP_INDEX["conv5x5"]})
 POOL_OPS: frozenset[int] = frozenset({OP_INDEX["maxpool3x3"], OP_INDEX["avgpool3x3"]})
 CONV_KERNELS: dict[int, int] = {OP_INDEX["conv3x3"]: 3, OP_INDEX["conv5x5"]: 5}
 EDGE_INPUTS: tuple[tuple[int, int], ...] = ((0, 2), (1, 2), (0, 3), (1, 3))
+N_EDGES: int = len(EDGE_INPUTS)

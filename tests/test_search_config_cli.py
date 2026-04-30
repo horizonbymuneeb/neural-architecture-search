@@ -287,3 +287,29 @@ def test_config_validation_catches_inconsistent_budgets(tmp_path: Path) -> None:
     wrong_epochs.write_text(text.replace("epochs: 4", "epochs: 2", 1), encoding="utf-8")
     with pytest.raises(ValueError, match="epochs_per_candidate"):
         load_config(wrong_epochs)
+
+
+def test_default_config_roundtrips(tmp_path: Path) -> None:
+    path = tmp_path / "default.yaml"
+    path.write_text(default_config_yaml(), encoding="utf-8")
+    config = load_config(path)
+    assert config.evolution.population_size == 6
+    assert config.task.n_samples == 600
+
+
+def test_cli_parser_exposes_its_commands() -> None:
+    parser = build_parser()
+    for command in ("search", "space", "data", "config"):
+        assert parser.parse_args([command]).command == command
+    assert parser.parse_args(["search", "--strategy", "random"]).strategy == "random"
+
+
+def test_cli_space_and_config_commands(capsys: pytest.CaptureFixture[str]) -> None:
+    assert main(["space"]) == 0
+    space_output = capsys.readouterr().out
+    assert "architectures:" in space_output
+    assert "supernet parameters:" in space_output
+    assert main(["config"]) == 0
+    assert '"planned_evaluations"' in capsys.readouterr().out
+    assert main(["config", "--defaults"]) == 0
+    assert "population_size" in capsys.readouterr().out
