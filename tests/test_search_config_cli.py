@@ -313,3 +313,64 @@ def test_cli_space_and_config_commands(capsys: pytest.CaptureFixture[str]) -> No
     assert '"planned_evaluations"' in capsys.readouterr().out
     assert main(["config", "--defaults"]) == 0
     assert "population_size" in capsys.readouterr().out
+
+
+def test_cli_data_command(capsys: pytest.CaptureFixture[str]) -> None:
+    assert main(["data"]) == 0
+    output = capsys.readouterr().out
+    assert "train /" in output
+    assert "accuracy" in output
+
+
+def test_cli_search_runs_both_strategies(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    config_path = tmp_path / "tiny.yaml"
+    config_path.write_text(
+        """
+seed: 0
+output_dir: artifacts
+space:
+  min_blocks: 1
+  max_blocks: 2
+  width: 8
+  width_choices: [8]
+  n_classes: 3
+  in_channels: 3
+task:
+  n_samples: 60
+  size: 12
+  n_classes: 3
+  noise: 0.3
+  seed: 0
+  val_fraction: 0.25
+training:
+  epochs: 1
+  batch_size: 32
+  learning_rate: 0.02
+  weight_decay: 0.0
+evolution:
+  population_size: 2
+  generations: 0
+  tournament_size: 2
+  mutation_rate: 0.3
+  crossover_rate: 0.6
+  elite: 0
+budget:
+  max_candidates: 2
+  max_samples: 10000
+  epochs_per_candidate: 1
+""",
+        encoding="utf-8",
+    )
+    out = tmp_path / "result.json"
+    assert main(["--config", str(config_path), "search", "--strategy", "both", "--json", "--out", str(out)]) == 0
+    payload = json.loads(out.read_text(encoding="utf-8"))
+    assert len(payload) == 2
+    assert {entry["strategy"] for entry in payload} == {"evolution", "random"}
+    assert capsys.readouterr().out.strip().startswith("[")
+
+
+def test_cli_reports_config_errors(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    bad = tmp_path / "bad.yaml"
+    bad.write_text("seed: -1\n", encoding="utf-8")
+    assert main(["--config", str(bad), "config"]) == 2
+    assert "config error" in capsys.readouterr().err
