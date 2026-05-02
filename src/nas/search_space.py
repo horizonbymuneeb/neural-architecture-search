@@ -30,3 +30,24 @@ EDGE_INPUTS: tuple[tuple[int, int], ...] = ((0, 2), (1, 2), (0, 3), (1, 3))
 N_EDGES: int = len(EDGE_INPUTS)
 N_NODES: int = 2
 MAX_BLOCKS: int = 6
+MIN_WIDTH: int = 4
+MAX_WIDTH: int = 64
+
+
+@dataclass(frozen=True)
+class ArchSpec:
+    """One point in the search space."""
+
+    ops: tuple[int, ...]
+    blocks: int = 2
+    width: int = 8
+
+    def __post_init__(self) -> None:
+        validate_arch(self)
+
+    @property
+    def key(self) -> str:
+        return arch_key(self)
+
+    def op_names(self) -> tuple[str, ...]:
+        return tuple(OP_NAMES[index] for index in self.ops)
