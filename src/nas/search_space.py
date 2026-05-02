@@ -51,3 +51,30 @@ class ArchSpec:
 
     def op_names(self) -> tuple[str, ...]:
         return tuple(OP_NAMES[index] for index in self.ops)
+
+
+@dataclass(frozen=True)
+class SpaceConfig:
+    """Bounds the sampler respects."""
+
+    max_blocks: int = 3
+    min_blocks: int = 1
+    width: int = 8
+    width_choices: tuple[int, ...] = (8,)
+    n_classes: int = 3
+    in_channels: int = 3
+
+    def __post_init__(self) -> None:
+        if self.max_blocks < self.min_blocks:
+            raise ValueError("max_blocks must be >= min_blocks")
+        if self.max_blocks > MAX_BLOCKS:
+            raise ValueError(f"max_blocks must be <= {MAX_BLOCKS}")
+        if self.min_blocks < 1:
+            raise ValueError("min_blocks must be >= 1")
+        if not self.width_choices:
+            raise ValueError("width_choices must not be empty")
+        for width in self.width_choices:
+            if not MIN_WIDTH <= width <= MAX_WIDTH:
+                raise ValueError(f"width {width} outside [{MIN_WIDTH}, {MAX_WIDTH}]")
+        if self.n_classes < 2:
+            raise ValueError("n_classes must be >= 2")
