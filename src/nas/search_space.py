@@ -78,3 +78,23 @@ class SpaceConfig:
                 raise ValueError(f"width {width} outside [{MIN_WIDTH}, {MAX_WIDTH}]")
         if self.n_classes < 2:
             raise ValueError("n_classes must be >= 2")
+
+
+def validate_arch(arch: ArchSpec) -> None:
+    """Reject encodings the builders cannot represent."""
+    if len(arch.ops) != N_EDGES:
+        raise ValueError(f"architecture needs {N_EDGES} edge ops, got {len(arch.ops)}")
+    for op in arch.ops:
+        if not 0 <= int(op) < N_OPS:
+            raise ValueError(f"operation index {op} outside [0, {N_OPS})")
+    if not 1 <= arch.blocks <= MAX_BLOCKS:
+        raise ValueError(f"blocks must be in [1, {MAX_BLOCKS}], got {arch.blocks}")
+    if not MIN_WIDTH <= arch.width <= MAX_WIDTH:
+        raise ValueError(f"width must be in [{MIN_WIDTH}, {MAX_WIDTH}], got {arch.width}")
+
+
+def op_name(index: int) -> str:
+    """Human name of an operation index."""
+    if not 0 <= int(index) < N_OPS:
+        raise ValueError(f"operation index {index} outside [0, {N_OPS})")
+    return OP_NAMES[int(index)]
