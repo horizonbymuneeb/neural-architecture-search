@@ -98,3 +98,26 @@ def op_name(index: int) -> str:
     if not 0 <= int(index) < N_OPS:
         raise ValueError(f"operation index {index} outside [0, {N_OPS})")
     return OP_NAMES[int(index)]
+
+
+def arch_key(arch: ArchSpec) -> str:
+    """Stable string key, used for de-duplication and Pareto bookkeeping."""
+    ops = "-".join(str(int(op)) for op in arch.ops)
+    return f"{ops}|b{arch.blocks}|w{arch.width}"
+
+
+def arch_from_key(key: str) -> ArchSpec:
+    """Inverse of :func:`arch_key`; raises on malformed input."""
+    try:
+        ops_part, blocks_part, width_part = key.split("|")
+        ops = tuple(int(piece) for piece in ops_part.split("-"))
+        blocks = int(blocks_part.lstrip("b"))
+        width = int(width_part.lstrip("w"))
+    except (ValueError, AttributeError) as exc:
+        raise ValueError(f"malformed architecture key {key!r}") from exc
+    return ArchSpec(ops=ops, blocks=blocks, width=width)
+
+
+def active_edges(arch: ArchSpec) -> tuple[int, ...]:
+    """Edge positions that are not switched off (``none`` contributes nothing)."""
+    return tuple(index for index, op in enumerate(arch.ops) if int(op) != OP_INDEX["none"])
