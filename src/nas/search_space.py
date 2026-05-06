@@ -121,3 +121,12 @@ def arch_from_key(key: str) -> ArchSpec:
 def active_edges(arch: ArchSpec) -> tuple[int, ...]:
     """Edge positions that are not switched off (``none`` contributes nothing)."""
     return tuple(index for index, op in enumerate(arch.ops) if int(op) != OP_INDEX["none"])
+
+
+def random_arch(rng: np.random.Generator, space: SpaceConfig | None = None) -> ArchSpec:
+    """Uniformly sample one architecture inside the configured bounds."""
+    space = space or SpaceConfig()
+    blocks = int(rng.integers(space.min_blocks, space.max_blocks + 1))
+    width = int(rng.choice(np.asarray(space.width_choices, dtype=int)))
+    ops = tuple(int(value) for value in rng.integers(0, N_OPS, size=N_EDGES))
+    return ArchSpec(ops=ops, blocks=blocks, width=width)
