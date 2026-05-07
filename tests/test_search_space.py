@@ -59,3 +59,36 @@ def test_arch_spec_validates_its_own_fields() -> None:
     with pytest.raises(ValueError, match="outside"):
         validate_arch(ArchSpec(ops=(2, 2, 2, 2), blocks=1, width=8))
         raise ValueError("outside")
+
+
+def test_key_roundtrip() -> None:
+    arch = ArchSpec(ops=(2, 3, 4, 5), blocks=2, width=8)
+    assert arch.key == "2-3-4-5|b2|w8"
+    assert arch_from_key(arch.key) == arch
+    assert arch.op_names() == ("conv3x3", "conv5x5", "maxpool3x3", "avgpool3x3")
+    with pytest.raises(ValueError, match="malformed"):
+        arch_from_key("nonsense")
+
+
+def test_random_arch_respects_the_space_bounds_and_is_seeded() -> None:
+    space = SpaceConfig(min_blocks=1, max_blocks=3, width_choices=(8, 16))
+    rng_first = np.random.default_rng(0)
+    rng_second = np.random.default_rng(0)
+    first = [random_arch(rng_first, space) for _ in range(20)]
+    second = [random_arch(rng_second, space) for _ in range(20)]
+    assert first == second
+    assert {arch.blocks for arch in first} <= {1, 2, 3}
+    assert {arch.width for arch in first} <= {8, 16}
+    assert all(0 <= op < N_OPS for arch in first for op in arch.ops)
+    assert len({arch.key for arch in first}) > 1
+
+
+def test_mutate_changes_operations_and_keeps_bounds() -> None:
+    arch = ArchSpec(ops=(2, 2, 2, 2), blocks=2, width=8)
+    space = SpaceConfig(min_blocks=1, max_blocks=3)
+    changed = mutate(arch, np.random.default_rng(1), rate=1.0, space=space)
+    assert changed != arch
+    assert all(new != old for new, old in zip(changed.ops, arch.ops))
+    assert 1 <= changed.blocks <= 3
+    with pytest.raises(ValueError, match="rate"):
+        mutate(arch, np.random.default_rng(1), rate=1.5)

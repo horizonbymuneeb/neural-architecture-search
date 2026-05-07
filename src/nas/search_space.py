@@ -130,3 +130,33 @@ def random_arch(rng: np.random.Generator, space: SpaceConfig | None = None) -> A
     width = int(rng.choice(np.asarray(space.width_choices, dtype=int)))
     ops = tuple(int(value) for value in rng.integers(0, N_OPS, size=N_EDGES))
     return ArchSpec(ops=ops, blocks=blocks, width=width)
+
+
+def mutate(arch: ArchSpec, rng: np.random.Generator, rate: float = 0.25, space: SpaceConfig | None = None) -> ArchSpec:
+    """Flip operations with probability ``rate`` and occasionally resize."""
+    if not 0.0 <= rate <= 1.0:
+        raise ValueError(f"rate must be in [0, 1], got {rate}")
+    space = space or SpaceConfig()
+    ops = list(arch.ops)
+    for position in range(N_EDGES):
+        if rng.random() < rate:
+            choices = [index for index in range(N_OPS) if index != ops[position]]
+            ops[position] = int(rng.choice(choices))
+    blocks = arch.blocks
+    if rng.random() < rate / 2:
+        blocks = int(np.clip(blocks + int(rng.choice([-1, 1])), space.min_blocks, space.max_blocks))
+    width = arch.width
+    if len(space.width_choices) > 1 and rng.random() < rate / 4:
+        width = int(rng.choice(np.asarray(space.width_choices, dtype=int)))
+    return ArchSpec(ops=tuple(ops), blocks=blocks, width=width)
+
+
+def crossover(left: ArchSpec, right: ArchSpec, rng: np.random.Generator) -> ArchSpec:
+    """Per-edge uniform crossover plus a coin flip for the block count."""
+    ops = tuple(
+        int(left.ops[position]) if rng.random() < 0.5 else int(right.ops[position])
+        for position in range(N_EDGES)
+    )
+    blocks = left.blocks if rng.random() < 0.5 else right.blocks
+    width = left.width if rng.random() < 0.5 else right.width
+    return ArchSpec(ops=ops, blocks=blocks, width=width)
