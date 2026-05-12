@@ -160,3 +160,50 @@ def crossover(left: ArchSpec, right: ArchSpec, rng: np.random.Generator) -> Arch
     blocks = left.blocks if rng.random() < 0.5 else right.blocks
     width = left.width if rng.random() < 0.5 else right.width
     return ArchSpec(ops=ops, blocks=blocks, width=width)
+
+
+def op_parameters(op: int, in_channels: int, out_channels: int) -> int:
+    """Parameters contributed by one operation, mirroring the real module."""
+    kernel = CONV_KERNELS.get(int(op))
+    if kernel is not None:
+        return in_channels * out_channels * kernel * kernel + out_channels
+    if int(op) == OP_INDEX["skip"] and in_channels != out_channels:
+        # a skip that changes the channel count needs a 1x1 projection
+        return in_channels * out_channels + out_channels
+    return 0
+
+
+def cell_input_channels(block: int, width: int) -> tuple[int, int]:
+    """Input channel counts seen by ``(previous, previous_previous)``.
+
+    Block 0 reads the stem twice, block 1 reads the first block's output next to
+    the stem, and later blocks read two cell outputs. The three cases are the
+    reason channel counts cannot be a single number.
+    """
+    if block == 0:
+        return width, width
+    if block == 1:
+        return 2 * width, width
+    return 2 * width, 2 * width
+
+
+def estimate_parameters(arch: ArchSpec, in_channels: int = 3, n_classes: int = 3) -> int:
+    """Analytic parameter count of :func:`nas.supernet.build_network`.
+
+    The stem is one 3x3 convolution plus batch norm, every block contributes its
+    four edge operations (two per node), and the head is a single linear layer
+    over the last block's concatenated output.
+    """
+    validate_arch(arch)
+    width = arch.width
+    total = in_channels * width * 3 * 3 + 2 * width
+    for block in range(arch.blocks):
+        first, second = cell_input_channels(block, width)
+        # each cell input is projected to the base width before the operations,
+        # so every operation sees width channels in and out
+        total += first * width + width
+        total += second * width + width
+        for edge in range(N_EDGES):
+            total += op_parameters(arch.ops[edge], width, width)
+    total += 2 * width * n_classes + n_classes
+    return int(total)
