@@ -92,3 +92,23 @@ def test_mutate_changes_operations_and_keeps_bounds() -> None:
     assert 1 <= changed.blocks <= 3
     with pytest.raises(ValueError, match="rate"):
         mutate(arch, np.random.default_rng(1), rate=1.5)
+
+
+def test_mutate_with_zero_rate_is_a_no_op() -> None:
+    arch = ArchSpec(ops=(3, 1, 4, 0), blocks=2, width=8)
+    assert mutate(arch, np.random.default_rng(2), rate=0.0) == arch
+
+
+def test_crossover_takes_every_edge_from_one_parent() -> None:
+    left = ArchSpec(ops=(2, 2, 2, 2), blocks=1, width=8)
+    right = ArchSpec(ops=(3, 3, 3, 3), blocks=3, width=8)
+    child = crossover(left, right, np.random.default_rng(3))
+    assert all(op in (2, 3) for op in child.ops)
+    assert child.blocks in (1, 3)
+    assert child == crossover(left, right, np.random.default_rng(3))
+
+
+def test_active_edges_ignores_switched_off_operations() -> None:
+    arch = ArchSpec(ops=(0, 2, 0, 4), blocks=1, width=8)
+    assert active_edges(arch) == (1, 3)
+    assert active_edges(ArchSpec(ops=(0, 0, 0, 0), blocks=1, width=8)) == ()

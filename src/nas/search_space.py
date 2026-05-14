@@ -207,3 +207,18 @@ def estimate_parameters(arch: ArchSpec, in_channels: int = 3, n_classes: int = 3
             total += op_parameters(arch.ops[edge], width, width)
     total += 2 * width * n_classes + n_classes
     return int(total)
+
+
+def describe_arch(arch: ArchSpec) -> str:
+    """One-line human summary, used by the CLI and the results table."""
+    ops = ", ".join(f"{OP_NAMES[op]}" for op in arch.ops)
+    return f"{arch.blocks} blocks, width {arch.width}, ops [{ops}]"
+
+
+def op_histogram(archs: list[ArchSpec]) -> dict[str, int]:
+    """How often each operation appears across a population."""
+    counts = {name: 0 for name in OP_NAMES}
+    for arch in archs:
+        for op in arch.ops:
+            counts[OP_NAMES[int(op)]] += 1
+    return counts
