@@ -112,3 +112,28 @@ def test_active_edges_ignores_switched_off_operations() -> None:
     arch = ArchSpec(ops=(0, 2, 0, 4), blocks=1, width=8)
     assert active_edges(arch) == (1, 3)
     assert active_edges(ArchSpec(ops=(0, 0, 0, 0), blocks=1, width=8)) == ()
+
+
+def test_operation_parameter_counts_match_the_modules() -> None:
+    assert op_parameters(OP_INDEX["none"], 8, 8) == 0
+    assert op_parameters(OP_INDEX["skip"], 8, 8) == 0
+    assert op_parameters(OP_INDEX["maxpool3x3"], 8, 8) == 0
+    assert op_parameters(OP_INDEX["conv3x3"], 8, 8) == 8 * 8 * 9 + 8
+    assert op_parameters(OP_INDEX["conv5x5"], 8, 8) == 8 * 8 * 25 + 8
+
+
+def test_cell_input_channels_has_three_distinct_cases() -> None:
+    assert cell_input_channels(0, 8) == (8, 8)
+    assert cell_input_channels(1, 8) == (16, 8)
+    assert cell_input_channels(2, 8) == (16, 16)
+    assert cell_input_channels(5, 8) == (16, 16)
+
+
+@pytest.mark.parametrize(
+    "ops",
+    [(2, 2, 2, 2), (3, 3, 3, 3), (0, 0, 0, 0), (5, 5, 5, 5), (0, 1, 2, 3), (4, 5, 0, 1)],
+)
+def test_estimate_parameters_matches_the_built_network(ops: tuple[int, ...]) -> None:
+    for blocks in (1, 2, 3):
+        arch = ArchSpec(ops=ops, blocks=blocks, width=8)
+        assert estimate_parameters(arch) == count_parameters(build_network(arch))
