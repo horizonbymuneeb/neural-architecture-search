@@ -97,3 +97,76 @@ class Cell(nn.Module):
                 accumulator = out if accumulator is None else accumulator + out
             nodes.append(accumulator if accumulator is not None else torch.zeros_like(first))
         return torch.cat(nodes, dim=1)
+
+
+class Supernet(nn.Module):
+    """One network holding every operation in the space."""
+
+    def __init__(self, space: SpaceConfig | None = None, in_channels: int = 3, n_classes: int = 3) -> None:
+        super().__init__()
+        self.space = space or SpaceConfig()
+        self.in_channels = in_channels
+        self.n_classes = n_classes
+        width = self.space.width
+        self.width = width
+        self.stem = nn.Sequential(
+            nn.Conv2d(in_channels, width, kernel_size=3, padding=1, bias=False),
+            nn.BatchNorm2d(width),
+            nn.ReLU(inplace=True),
+        )
+        self.cells = nn.ModuleList()
+        for block in range(self.space.max_blocks):
+            channels = cell_input_channels(block, width)
+            modules: dict[tuple[int, int], nn.Module] = {
+                (edge, op): make_op(op, width, width) for edge in range(N_EDGES) for op in range(N_OPS)
+            }
+            self.cells.append(Cell(channels, width, modules))
+        self.head = nn.Linear(2 * width, n_classes)
+
+    def forward(self, images: torch.Tensor, arch: ArchSpec) -> torch.Tensor:
+        """Run the sub-network selected by ``arch``."""
+        if arch.blocks > len(self.cells):
+            raise ValueError(f"architecture needs {arch.blocks} blocks, supernet has {len(self.cells)}")
+        if arch.width != self.width:
+            raise ValueError(f"architecture width {arch.width} does not match supernet width {self.width}")
+        previous = self.stem(images)
+        previous_previous = previous
+        for block in range(arch.blocks):
+            out = self.cells[block]((previous, previous_previous), arch.ops)
+            previous_previous, previous = previous, out
+        pooled = torch.nn.functional.adaptive_avg_pool2d(previous, 1).flatten(1)
+        return self.head(pooled)
+
+    def arch_parameters(self, arch: ArchSpec) -> list[nn.Parameter]:
+        """Parameters that participate in ``arch`` — used to show sharing works."""
+        selected: list[nn.Parameter] = list(self.stem.parameters()) + list(self.head.parameters())
+        for block in range(arch.blocks):
+            cell = self.cells[block]
+            selected.extend(cell.projections.parameters())
+            for edge in range(N_EDGES):
+                module = cell.modules_by_edge[f"e{edge}_o{int(arch.ops[edge])}"]
+                selected.extend(module.parameters())
+        return selected
+
+    def n_parameters(self) -> int:
+        """Total parameters stored, over every operation in the space."""
+        return count_parameters(self)
+
+
+def build_network(arch: ArchSpec, in_channels: int = 3, n_classes: int = 3) -> nn.Module:
+    """Standalone network for one architecture, matching the parameter estimate."""
+    width = arch.width
+    layers: list[nn.Module] = [
+        nn.Conv2d(in_channels, width, kernel_size=3, padding=1, bias=False),
+        nn.BatchNorm2d(width),
+        nn.ReLU(inplace=True),
+    ]
+    body = nn.ModuleList()
+    for block in range(arch.blocks):
+        channels = cell_input_channels(block, width)
+        modules: dict[tuple[int, int], nn.Module] = {
+            (edge, int(arch.ops[edge])): make_op(int(arch.ops[edge]), width, width) for edge in range(N_EDGES)
+        }
+        body.append(Cell(channels, width, modules, arch.ops))
+    head = nn.Linear(2 * width, n_classes)
+    return SingleArchNetwork(nn.Sequential(*layers), body, head)

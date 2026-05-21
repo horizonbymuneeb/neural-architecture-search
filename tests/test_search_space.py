@@ -137,3 +137,33 @@ def test_estimate_parameters_matches_the_built_network(ops: tuple[int, ...]) -> 
     for blocks in (1, 2, 3):
         arch = ArchSpec(ops=ops, blocks=blocks, width=8)
         assert estimate_parameters(arch) == count_parameters(build_network(arch))
+
+
+def test_estimate_parameters_matches_every_architecture_in_a_slice() -> None:
+    # a slice of the space: all single-operation architectures
+    for op in range(N_OPS):
+        for blocks in (1, 2):
+            arch = ArchSpec(ops=(op, op, op, op), blocks=blocks, width=8)
+            assert estimate_parameters(arch) == count_parameters(build_network(arch))
+    # and a full cross-product for one block count
+    for ops in itertools.product(range(N_OPS), repeat=2):
+        arch = ArchSpec(ops=(ops[0], ops[1], ops[0], ops[1]), blocks=2, width=8)
+        assert estimate_parameters(arch) == count_parameters(build_network(arch))
+
+
+def test_more_blocks_means_more_parameters() -> None:
+    small = estimate_parameters(ArchSpec(ops=(2, 2, 2, 2), blocks=1, width=8))
+    large = estimate_parameters(ArchSpec(ops=(2, 2, 2, 2), blocks=3, width=8))
+    assert large > small
+    pooling_only = estimate_parameters(ArchSpec(ops=(5, 5, 5, 5), blocks=3, width=8))
+    assert pooling_only < small
+
+
+def test_describe_arch_and_histogram() -> None:
+    arch = ArchSpec(ops=(2, 2, 3, 0), blocks=2, width=8)
+    text = describe_arch(arch)
+    assert "2 blocks" in text and "conv3x3" in text
+    histogram = op_histogram([arch, arch])
+    assert histogram["conv3x3"] == 4
+    assert histogram["none"] == 2
+    assert sum(histogram.values()) == 8
