@@ -170,3 +170,22 @@ def build_network(arch: ArchSpec, in_channels: int = 3, n_classes: int = 3) -> n
         body.append(Cell(channels, width, modules, arch.ops))
     head = nn.Linear(2 * width, n_classes)
     return SingleArchNetwork(nn.Sequential(*layers), body, head)
+
+
+class SingleArchNetwork(nn.Module):
+    """A network with the operations of exactly one architecture."""
+
+    def __init__(self, stem: nn.Sequential, cells: nn.ModuleList, head: nn.Linear) -> None:
+        super().__init__()
+        self.stem = stem
+        self.cells = cells
+        self.head = head
+
+    def forward(self, images: torch.Tensor, ops: tuple[int, ...] | None = None) -> torch.Tensor:
+        previous = self.stem(images)
+        previous_previous = previous
+        for cell in self.cells:
+            out = cell((previous, previous_previous), ops)
+            previous_previous, previous = previous, out
+        pooled = torch.nn.functional.adaptive_avg_pool2d(previous, 1).flatten(1)
+        return self.head(pooled)

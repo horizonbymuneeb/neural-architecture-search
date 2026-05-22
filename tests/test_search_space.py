@@ -167,3 +167,14 @@ def test_describe_arch_and_histogram() -> None:
     assert histogram["conv3x3"] == 4
     assert histogram["none"] == 2
     assert sum(histogram.values()) == 8
+
+
+def test_space_config_rejects_impossible_bounds() -> None:
+    with pytest.raises(ValueError, match="max_blocks"):
+        SpaceConfig(min_blocks=3, max_blocks=2)
+    with pytest.raises(ValueError, match="width"):
+        SpaceConfig(width_choices=(2,))
+    with pytest.raises(ValueError, match="n_classes"):
+        SpaceConfig(n_classes=1)
+    with pytest.raises(ValueError, match="width_choices"):
+        SpaceConfig(width_choices=())
