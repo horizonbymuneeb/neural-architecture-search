@@ -189,3 +189,28 @@ class SingleArchNetwork(nn.Module):
             previous_previous, previous = previous, out
         pooled = torch.nn.functional.adaptive_avg_pool2d(previous, 1).flatten(1)
         return self.head(pooled)
+
+
+def count_parameters(model: nn.Module) -> int:
+    """Number of trainable scalar parameters in a module."""
+    return int(sum(parameter.numel() for parameter in model.parameters() if parameter.requires_grad))
+
+
+def shared_parameter_fraction(supernet: Supernet, archs: list[ArchSpec]) -> float:
+    """How much of the supernet a set of candidates actually touches."""
+    if not archs:
+        raise ValueError("need at least one architecture")
+    touched = {id(parameter) for arch in archs for parameter in supernet.arch_parameters(arch)}
+    total = supernet.n_parameters()
+    if total == 0:
+        return 0.0
+    touched_scalars = sum(
+        parameter.numel() for parameter in supernet.parameters() if id(parameter) in touched
+    )
+    return touched_scalars / total
+
+
+def parameter_mismatch(arch: ArchSpec, in_channels: int = 3, n_classes: int = 3) -> int:
+    """Difference between the analytic estimate and the built network."""
+    built = count_parameters(build_network(arch, in_channels, n_classes))
+    return int(estimate_parameters(arch, in_channels, n_classes) - built)
