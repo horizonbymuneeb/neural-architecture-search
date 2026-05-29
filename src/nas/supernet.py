@@ -214,3 +214,13 @@ def parameter_mismatch(arch: ArchSpec, in_channels: int = 3, n_classes: int = 3)
     """Difference between the analytic estimate and the built network."""
     built = count_parameters(build_network(arch, in_channels, n_classes))
     return int(estimate_parameters(arch, in_channels, n_classes) - built)
+
+
+def arch_signature(arch: ArchSpec) -> str:
+    """Compact signature used in reports: ops joined, block count, width."""
+    return f"{''.join(str(int(op)) for op in arch.ops)}-b{arch.blocks}-w{arch.width}"
+
+
+def sample_ops(arch: ArchSpec) -> np.ndarray:
+    """The operation vector as a numpy array (handy for distance computations)."""
+    return np.asarray(arch.ops, dtype=int)
