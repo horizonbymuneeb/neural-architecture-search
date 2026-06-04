@@ -18,3 +18,5 @@ from nas.supernet import (
     sample_ops,
     shared_parameter_fraction,
 )
+
+OPS = (2, 3, 4, 5)

@@ -33,3 +33,5 @@ from .supernet import Supernet, build_network, count_parameters
 Evaluator = Callable[[ArchSpec], "tuple[float, int]"]
 
 DEFAULT_EPOCHS: int = 3
+DEFAULT_BATCH_SIZE: int = 64
+DEFAULT_LEARNING_RATE: float = 0.01
