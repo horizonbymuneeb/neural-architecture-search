@@ -35,3 +35,24 @@ Evaluator = Callable[[ArchSpec], "tuple[float, int]"]
 DEFAULT_EPOCHS: int = 3
 DEFAULT_BATCH_SIZE: int = 64
 DEFAULT_LEARNING_RATE: float = 0.01
+DEFAULT_WEIGHT_DECAY: float = 0.0
+
+
+@dataclass(frozen=True)
+class TrainConfig:
+    """Fixed training recipe applied to every candidate."""
+
+    epochs: int = DEFAULT_EPOCHS
+    batch_size: int = DEFAULT_BATCH_SIZE
+    learning_rate: float = DEFAULT_LEARNING_RATE
+    weight_decay: float = DEFAULT_WEIGHT_DECAY
+
+    def __post_init__(self) -> None:
+        if self.epochs < 1:
+            raise ValueError(f"epochs must be >= 1, got {self.epochs}")
+        if self.batch_size < 1:
+            raise ValueError(f"batch_size must be >= 1, got {self.batch_size}")
+        if not 0 < self.learning_rate < 1:
+            raise ValueError(f"learning_rate must be in (0, 1), got {self.learning_rate}")
+        if self.weight_decay < 0:
+            raise ValueError(f"weight_decay must be >= 0, got {self.weight_decay}")
