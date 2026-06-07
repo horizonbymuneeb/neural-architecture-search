@@ -80,3 +80,30 @@ def count_updates(n_samples: int, batch_size: int, epochs: int) -> int:
         raise ValueError("n_samples must be positive")
     steps_per_epoch = (n_samples + batch_size - 1) // batch_size
     return int(steps_per_epoch * epochs)
+
+
+def build_optimizer(model: nn.Module, config: TrainConfig) -> torch.optim.Optimizer:
+    """Adam over the trainable parameters of ``model``."""
+    parameters = [parameter for parameter in model.parameters() if parameter.requires_grad]
+    if not parameters:
+        raise ValueError("model has no trainable parameters")
+    return torch.optim.Adam(parameters, lr=config.learning_rate, weight_decay=config.weight_decay)
+
+
+def train_epoch(model: nn.Module, loader: DataLoader, optimizer: torch.optim.Optimizer) -> float:
+    """One pass over the loader; returns the mean cross-entropy loss."""
+    model.train()
+    criterion = nn.CrossEntropyLoss()
+    total_loss = 0.0
+    batches = 0
+    for images, labels in loader:
+        optimizer.zero_grad()
+        logits = model(images)
+        loss = criterion(logits, labels)
+        loss.backward()
+        optimizer.step()
+        total_loss += float(loss.item())
+        batches += 1
+    if batches == 0:
+        raise ValueError("loader produced no batches")
+    return total_loss / batches

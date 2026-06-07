@@ -45,3 +45,27 @@ def test_skip_projects_when_the_channel_count_changes() -> None:
     assert isinstance(identity, torch.nn.Identity)
     assert isinstance(projection, torch.nn.Conv2d)
     assert count_parameters(projection) == 16 * 8 + 8
+
+
+def test_build_network_matches_the_analytic_estimate() -> None:
+    for blocks in (1, 2, 3):
+        arch = ArchSpec(ops=OPS, blocks=blocks, width=8)
+        assert count_parameters(build_network(arch)) == estimate_parameters(arch)
+        assert parameter_mismatch(arch) == 0
+
+
+def test_build_network_forward_shape() -> None:
+    arch = ArchSpec(ops=OPS, blocks=2, width=8)
+    model = build_network(arch)
+    output = model(torch.zeros(4, 3, 12, 12))
+    assert tuple(output.shape) == (4, 3)
+    assert torch.isfinite(output).all()
+
+
+def test_supernet_forward_works_for_every_block_count(supernet: Supernet) -> None:
+    images = torch.zeros(3, 3, 12, 12)
+    for blocks in (1, 2, 3):
+        arch = ArchSpec(ops=OPS, blocks=blocks, width=8)
+        output = supernet(images, arch)
+        assert tuple(output.shape) == (3, 3)
+        assert torch.isfinite(output).all()
