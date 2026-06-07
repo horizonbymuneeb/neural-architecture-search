@@ -56,3 +56,27 @@ class TrainConfig:
             raise ValueError(f"learning_rate must be in (0, 1), got {self.learning_rate}")
         if self.weight_decay < 0:
             raise ValueError(f"weight_decay must be >= 0, got {self.weight_decay}")
+
+
+@dataclass(frozen=True)
+class TrainResult:
+    """What one training run cost and achieved."""
+
+    accuracy: float
+    loss_history: tuple[float, ...]
+    seconds: float
+    n_parameters: int
+    n_samples: int
+    n_updates: int
+
+    @property
+    def final_loss(self) -> float:
+        return self.loss_history[-1] if self.loss_history else float("nan")
+
+
+def count_updates(n_samples: int, batch_size: int, epochs: int) -> int:
+    """Optimiser steps performed by :func:`train_candidate`."""
+    if n_samples <= 0:
+        raise ValueError("n_samples must be positive")
+    steps_per_epoch = (n_samples + batch_size - 1) // batch_size
+    return int(steps_per_epoch * epochs)
