@@ -107,3 +107,31 @@ def train_epoch(model: nn.Module, loader: DataLoader, optimizer: torch.optim.Opt
     if batches == 0:
         raise ValueError("loader produced no batches")
     return total_loss / batches
+
+
+def evaluate_accuracy(model: nn.Module, loader: DataLoader) -> float:
+    """Fraction of correctly classified examples."""
+    model.eval()
+    correct = 0
+    total = 0
+    with torch.no_grad():
+        for images, labels in loader:
+            logits = model(images)
+            predictions = logits.argmax(dim=1)
+            correct += int((predictions == labels).sum().item())
+            total += int(labels.numel())
+    if total == 0:
+        raise ValueError("loader produced no examples")
+    return correct / total
+
+
+class ArchView(nn.Module):
+    """Presents one architecture of a supernet as an ordinary ``nn.Module``."""
+
+    def __init__(self, supernet: Supernet, arch: ArchSpec) -> None:
+        super().__init__()
+        self.supernet = supernet
+        self.arch = arch
+
+    def forward(self, images: torch.Tensor) -> torch.Tensor:
+        return self.supernet(images, self.arch)

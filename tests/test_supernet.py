@@ -69,3 +69,28 @@ def test_supernet_forward_works_for_every_block_count(supernet: Supernet) -> Non
         output = supernet(images, arch)
         assert tuple(output.shape) == (3, 3)
         assert torch.isfinite(output).all()
+
+
+def test_supernet_forward_works_for_every_operation(supernet: Supernet) -> None:
+    images = torch.zeros(2, 3, 12, 12)
+    for op in range(6):
+        arch = ArchSpec(ops=(op, op, op, op), blocks=2, width=8)
+        output = supernet(images, arch)
+        assert tuple(output.shape) == (2, 3)
+
+
+def test_supernet_rejects_architectures_it_cannot_represent(supernet: Supernet) -> None:
+    images = torch.zeros(1, 3, 12, 12)
+    with pytest.raises(ValueError, match="does not match supernet width"):
+        supernet(images, ArchSpec(ops=OPS, blocks=1, width=16))
+    space = SpaceConfig(min_blocks=1, max_blocks=1)
+    small = Supernet(space)
+    with pytest.raises(ValueError, match="supernet has"):
+        small(images, ArchSpec(ops=OPS, blocks=3, width=8))
+
+
+def test_supernet_holds_more_parameters_than_any_single_architecture(supernet: Supernet) -> None:
+    total = supernet.n_parameters()
+    for blocks in (1, 2, 3):
+        arch = ArchSpec(ops=OPS, blocks=blocks, width=8)
+        assert estimate_parameters(arch) < total
