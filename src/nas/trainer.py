@@ -135,3 +135,48 @@ class ArchView(nn.Module):
 
     def forward(self, images: torch.Tensor) -> torch.Tensor:
         return self.supernet(images, self.arch)
+
+
+def train_candidate(
+    model: nn.Module,
+    train_loader: DataLoader,
+    val_loader: DataLoader,
+    config: TrainConfig,
+) -> TrainResult:
+    """Train a standalone model and report validation accuracy."""
+    optimizer = build_optimizer(model, config)
+    losses: list[float] = []
+    started = time.perf_counter()
+    for _ in range(config.epochs):
+        losses.append(train_epoch(model, train_loader, optimizer))
+    elapsed = time.perf_counter() - started
+    accuracy = evaluate_accuracy(model, val_loader)
+    n_samples = int(len(train_loader.dataset))  # type: ignore[arg-type]
+    return TrainResult(
+        accuracy=accuracy,
+        loss_history=tuple(losses),
+        seconds=elapsed,
+        n_parameters=count_parameters(model),
+        n_samples=n_samples,
+        n_updates=count_updates(n_samples, config.batch_size, config.epochs),
+    )
+
+
+def train_arch(
+    supernet: Supernet,
+    arch: ArchSpec,
+    train_loader: DataLoader,
+    val_loader: DataLoader,
+    config: TrainConfig,
+) -> TrainResult:
+    """Train one architecture through the shared supernet weights."""
+    view = ArchView(supernet, arch)
+    result = train_candidate(view, train_loader, val_loader, config)
+    return TrainResult(
+        accuracy=result.accuracy,
+        loss_history=result.loss_history,
+        seconds=result.seconds,
+        n_parameters=estimate_parameters(arch, supernet.in_channels, supernet.n_classes),
+        n_samples=result.n_samples,
+        n_updates=result.n_updates,
+    )
