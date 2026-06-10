@@ -198,3 +198,38 @@ def train_standalone(
     """Train a fresh network for one architecture from scratch."""
     model = build_network(arch, in_channels, n_classes)
     return train_candidate(model, train_loader, val_loader, config)
+
+
+def supernet_parameter_count(space: SpaceConfig | None = None) -> int:
+    """Total parameters held by a supernet of the given space."""
+    return Supernet(space).n_parameters()
+
+
+def make_evaluator(
+    supernet: Supernet,
+    train_loader: DataLoader,
+    val_loader: DataLoader,
+    config: TrainConfig,
+    accountant: BudgetAccountant,
+) -> Evaluator:
+    """Build the ``arch -> (accuracy, parameters)`` callable used by both searches.
+
+    Every evaluation is trained through the shared supernet and recorded in the
+    accountant, which is what makes the two strategies comparable: neither can
+    evaluate more candidates than the budget allows, and both pay the same price
+    per candidate.
+    """
+
+    def evaluate(arch: ArchSpec) -> tuple[float, int]:
+        result = train_arch(supernet, arch, train_loader, val_loader, config)
+        accountant.record(
+            arch_key=arch.key,
+            accuracy=result.accuracy,
+            parameters=result.n_parameters,
+            samples=result.n_samples,
+            updates=result.n_updates,
+            seconds=result.seconds,
+        )
+        return result.accuracy, result.n_parameters
+
+    return evaluate

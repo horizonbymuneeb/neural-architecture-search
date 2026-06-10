@@ -121,3 +121,31 @@ def test_shared_parameters_are_actually_shared_between_candidates(supernet: Supe
 def test_shared_parameter_fraction_needs_architectures(supernet: Supernet) -> None:
     with pytest.raises(ValueError, match="at least one architecture"):
         shared_parameter_fraction(supernet, [])
+
+
+def test_two_architectures_can_be_trained_through_the_same_weights(supernet: Supernet) -> None:
+    images = torch.randn(4, 3, 12, 12)
+    first = ArchSpec(ops=(2, 2, 2, 2), blocks=2, width=8)
+    second = ArchSpec(ops=(3, 3, 3, 3), blocks=2, width=8)
+    optimizer = torch.optim.SGD(supernet.parameters(), lr=0.1)
+    optimizer.zero_grad()
+    supernet(images, first).sum().backward()
+    optimizer.step()
+    before = supernet(images, second).detach().clone()
+    optimizer.zero_grad()
+    supernet(images, second).sum().backward()
+    optimizer.step()
+    after = supernet(images, second).detach()
+    assert not torch.allclose(before, after)
+
+
+def test_cell_requires_an_operation_vector_when_it_has_no_default() -> None:
+    cell = Cell((8, 8), 8, {(0, 2): torch.nn.Identity()})
+    with pytest.raises(ValueError, match="no operation vector"):
+        cell((torch.zeros(1, 8, 4, 4), torch.zeros(1, 8, 4, 4)))
+
+
+def test_arch_signature_and_sample_ops() -> None:
+    arch = ArchSpec(ops=(2, 3, 4, 5), blocks=2, width=8)
+    assert arch_signature(arch) == "2345-b2-w8"
+    assert np.array_equal(sample_ops(arch), np.asarray([2, 3, 4, 5]))
