@@ -180,3 +180,21 @@ def train_arch(
         n_samples=result.n_samples,
         n_updates=result.n_updates,
     )
+
+
+def evaluate_arch(supernet: Supernet, arch: ArchSpec, loader: DataLoader) -> float:
+    """Accuracy of one architecture using the current shared weights."""
+    return evaluate_accuracy(ArchView(supernet, arch), loader)
+
+
+def train_standalone(
+    arch: ArchSpec,
+    train_loader: DataLoader,
+    val_loader: DataLoader,
+    config: TrainConfig,
+    in_channels: int = 3,
+    n_classes: int = 3,
+) -> TrainResult:
+    """Train a fresh network for one architecture from scratch."""
+    model = build_network(arch, in_channels, n_classes)
+    return train_candidate(model, train_loader, val_loader, config)

@@ -94,3 +94,30 @@ def test_supernet_holds_more_parameters_than_any_single_architecture(supernet: S
     for blocks in (1, 2, 3):
         arch = ArchSpec(ops=OPS, blocks=blocks, width=8)
         assert estimate_parameters(arch) < total
+
+
+def test_arch_parameters_are_a_subset_of_the_supernet(supernet: Supernet) -> None:
+    arch = ArchSpec(ops=(2, 2, 2, 2), blocks=2, width=8)
+    selected = supernet.arch_parameters(arch)
+    owned = {id(parameter) for parameter in supernet.parameters()}
+    assert selected
+    assert all(id(parameter) in owned for parameter in selected)
+    assert len(selected) < len(list(supernet.parameters()))
+
+
+def test_shared_parameters_are_actually_shared_between_candidates(supernet: Supernet) -> None:
+    left = ArchSpec(ops=(2, 2, 2, 2), blocks=2, width=8)
+    right = ArchSpec(ops=(2, 2, 2, 2), blocks=2, width=8)
+    same = {id(parameter) for parameter in supernet.arch_parameters(left)}
+    other = {id(parameter) for parameter in supernet.arch_parameters(right)}
+    assert same == other
+    different = ArchSpec(ops=(3, 3, 3, 3), blocks=2, width=8)
+    changed = {id(parameter) for parameter in supernet.arch_parameters(different)}
+    assert changed != same
+    fraction = shared_parameter_fraction(supernet, [left, different])
+    assert 0.0 < fraction <= 1.0
+
+
+def test_shared_parameter_fraction_needs_architectures(supernet: Supernet) -> None:
+    with pytest.raises(ValueError, match="at least one architecture"):
+        shared_parameter_fraction(supernet, [])
