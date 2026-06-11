@@ -149,3 +149,8 @@ def test_arch_signature_and_sample_ops() -> None:
     arch = ArchSpec(ops=(2, 3, 4, 5), blocks=2, width=8)
     assert arch_signature(arch) == "2345-b2-w8"
     assert np.array_equal(sample_ops(arch), np.asarray([2, 3, 4, 5]))
+
+
+def test_count_parameters_is_zero_for_a_parameter_free_module() -> None:
+    assert count_parameters(torch.nn.Identity()) == 0
+    assert count_parameters(torch.nn.Linear(3, 2)) == 8
